@@ -9,6 +9,7 @@ let mediaStream = null;
 let wavRecorder = null;
 let activeRerecord = null;
 let questionBlobs = {}; // questionNumber -> { blob, url, duration }
+let cheatModeActive = false;
 
 // Audio Visualizer
 let audioContext = null;
@@ -49,6 +50,7 @@ const micWaveBars = document.querySelectorAll(".wave-bar");
 
 const reviewList = document.getElementById("review-list");
 const btnSubmitEvaluation = document.getElementById("btn-submit-evaluation");
+const btnCheatMode = document.getElementById("btn-cheat-mode");
 const btnViewSubmitted = document.getElementById("btn-view-submitted-recordings");
 
 // Question Type Labels & Instructions
@@ -181,6 +183,10 @@ function openSubmittedAudioReview() {
 
   renderReviewList();
 
+  if (btnCheatMode) {
+    btnCheatMode.style.display = "none";
+  }
+
   // Update submit button to a navigation button allowing return to the completion screen
   btnSubmitEvaluation.disabled = false;
   btnSubmitEvaluation.textContent = "← Return to Summary Screen";
@@ -198,6 +204,20 @@ function setupEventListeners() {
   btnRequestMic.addEventListener("click", enableMicrophone);
   btnStartExam.addEventListener("click", startExam);
   btnSubmitEvaluation.addEventListener("click", saveAllRecordings);
+
+  if (btnCheatMode) {
+    btnCheatMode.addEventListener("click", () => {
+      cheatModeActive = true;
+      btnCheatMode.disabled = true;
+      btnCheatMode.textContent = "Cheat Mode Active";
+      const reviewDesc = document.getElementById("review-desc");
+      if (reviewDesc) {
+        reviewDesc.textContent =
+          "Cheat Mode Active: Re-recording options unlocked! You can now re-record any question before saving.";
+      }
+      renderReviewList();
+    });
+  }
 
   if (btnViewSubmitted) {
     btnViewSubmitted.addEventListener("click", openSubmittedAudioReview);
@@ -434,6 +454,13 @@ function finishExam() {
   viewExam.style.display = "none";
   viewReview.style.display = "flex";
 
+  cheatModeActive = false;
+  if (btnCheatMode) {
+    btnCheatMode.style.display = "inline-flex";
+    btnCheatMode.disabled = false;
+    btnCheatMode.textContent = "I want to cheat";
+  }
+
   const reviewTitle = document.getElementById("review-title");
   const reviewDesc = document.getElementById("review-desc");
   if (reviewTitle) {
@@ -441,7 +468,7 @@ function finishExam() {
   }
   if (reviewDesc) {
     reviewDesc.textContent =
-      "Listen back to your recorded answers in memory. You can re-record any question if needed. When ready, click below to save everything to your storage folder.";
+      "Listen back to your recorded answers in memory. When ready, click below to save everything to your storage folder.";
   }
 
   renderReviewList();
@@ -518,7 +545,7 @@ function renderReviewList() {
           ? `<audio class="review-audio-player" controls preload="metadata" src="${url}"></audio>` 
           : `<span class="review-missing">No voice recording captured</span>`
         }
-        ${!isCompleted ? `
+        ${!isCompleted && cheatModeActive ? `
           <div class="review-card-actions">
             <button type="button" class="btn-rerecord" id="btn-rerecord-${q.questionNumber}" data-q="${q.questionNumber}">
               Re-record Answer
@@ -551,7 +578,7 @@ function renderReviewList() {
     }
 
     // Connect re-record button
-    if (!isCompleted) {
+    if (!isCompleted && cheatModeActive) {
       const rerecordBtn = card.querySelector(`#btn-rerecord-${q.questionNumber}`);
       if (rerecordBtn) {
         rerecordBtn.addEventListener("click", () => {
@@ -669,6 +696,9 @@ async function saveAllRecordings() {
       sessionData.completedAt = new Date().toISOString();
     }
 
+    if (btnCheatMode) {
+      btnCheatMode.style.display = "none";
+    }
     btnSubmitEvaluation.removeEventListener("click", saveAllRecordings);
     viewReview.style.display = "none";
     viewFinished.style.display = "block";

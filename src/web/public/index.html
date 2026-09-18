@@ -114,14 +114,17 @@
     <section class="card review-view" id="view-review">
       <h2 class="setup-title" id="review-title" style="text-align: center;">Review Your Recordings</h2>
       <p class="setup-desc" id="review-desc" style="text-align: center;">
-        Listen back to your recorded answers in memory. You can re-record any question if needed. When ready, click below to save everything to your storage folder.
+        Listen back to your recorded answers in memory. When ready, click below to save everything to your storage folder.
       </p>
 
       <div class="review-list" id="review-list">
         <!-- Recordings review items dynamically injected here -->
       </div>
 
-      <div style="text-align: center; margin-top: 1.5rem;">
+      <div style="text-align: center; margin-top: 1.5rem; display: flex; justify-content: center; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn btn-danger" id="btn-cheat-mode" style="font-size: 1rem; padding: 0.9rem 1.8rem;">
+          I want to cheat
+        </button>
         <button class="btn btn-success" id="btn-submit-evaluation" style="font-size: 1.05rem; padding: 0.9rem 2.2rem;">
           Save All Recordings
         </button>

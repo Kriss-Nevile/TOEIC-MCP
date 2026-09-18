@@ -679,6 +679,17 @@ main.app-main {
   box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
 }
 
+.btn-danger {
+  background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%);
+  color: #fff;
+  box-shadow: 0 4px 18px rgba(239, 68, 68, 0.35);
+}
+
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.5);
+}
+
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;

@@ -29,7 +29,7 @@ toeic-trainer-mcp/
 ### Prerequisites
 - **Node.js**: `v20.x` or `v22.x` (LTS)
 - **npm**: `v9.x` or higher
-- A Model Context Protocol client environment (e.g. Claude Desktop, Antigravity IDE, Cursor, or MCP CLI)
+- An MCP-compatible agent environment or test harness (e.g. Antigravity Agent, Codex/CLI agent runtimes, or custom agent frameworks)
 
 ### Repository Setup
 ```bash
@@ -40,7 +40,7 @@ npm run build
 ```
 
 ### Local Execution Modes
-- **Standard I/O Mode (local host integration)**:
+- **Standard I/O Mode (local agent integration)**:
   ```bash
   npm run dev:stdio
   ```

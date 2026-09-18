@@ -7,7 +7,7 @@
 
 An open-source Model Context Protocol (MCP) server that enables AI agents to administer interactive TOEIC Speaking examinations, execute targeted drills, manage local audio response recordings, and perform rubric-based evaluations.
 
-The server supports standard input/output (`stdio`) for local host environments (such as Claude Desktop, Antigravity IDE, and Cursor) as well as HTTP with Server-Sent Events (`SSE`) for remote or multi-agent deployments.
+The server supports standard input/output (`stdio`) for local agent environments (such as Antigravity Agent, Codex, and CLI runners) as well as HTTP with Server-Sent Events (`SSE`) for remote or multi-agent deployments.
 
 ---
 
@@ -62,7 +62,7 @@ Server behavior and default paths are configured via `toeic.config.json` in the 
 
 ---
 
-## Installation and Client Setup
+## Installation and Setup
 
 ### Local Installation
 
@@ -74,12 +74,13 @@ npm run build
 npm link
 ```
 
-### Client Configuration
+### Agent Configuration
 
-#### Claude Desktop
+#### Local Agent Runtime (`mcp_config.json` / stdio)
 
-Add the server definition to `claude_desktop_config.json`:
+Add the server definition to your agent's MCP configuration (e.g. Antigravity Agent, Codex agent configuration, or custom MCP harness):
 
+Using the globally linked binary:
 ```json
 {
   "mcpServers": {
@@ -91,10 +92,7 @@ Add the server definition to `claude_desktop_config.json`:
 }
 ```
 
-#### Antigravity IDE / Cursor
-
-Add the entry to `mcp_config.json`:
-
+Or targeting the build output directly:
 ```json
 {
   "mcpServers": {

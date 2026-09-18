@@ -57,11 +57,11 @@ An official **Model Context Protocol (MCP)** server providing tools and skills f
 - `search_question_bank`: Query questions by grammar tag, keyword, or context.
 - `get_audio_transcript`: Access spoken transcripts for listening questions.
 
-### Prompts & Skills
+### MCP Prompts
 - `evaluate_speaking_test`: Rubric-grounded prompt for evaluating candidate voice recordings against official ETS TOEIC Speaking criteria (0–200 scaled score, Levels 1–8).
-- `evaluate_question`: Prompts the model to perform thorough distractor analysis and remediation.
-- `diagnose_weaknesses`: Synthesizes session results into a tailored study roadmap.
-- `generate_targeted_lesson`: Generates focused mini-lessons for recurring mistake patterns.
+- `evaluate_question`: Prompts the model to perform deep distractor analysis, trap classification (phonetic, non-sequitur, word form, scope), and actionable remediation takeaways for any Part 1–7 question.
+- `diagnose_weaknesses`: Synthesizes completed exam session results into a vulnerability matrix across parts, classifies error root causes, and generates a prioritized 3-phase study roadmap.
+- `generate_targeted_lesson`: Generates focused mini-lessons with core grammar/vocabulary principles, ETS trap blueprints, authentic 3-question practice drills, and answer commentaries.
 
 ---
 

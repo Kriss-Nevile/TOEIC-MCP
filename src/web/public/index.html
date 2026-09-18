@@ -129,17 +129,20 @@
       </div>
     </section>
 
-    <!-- View 4: Finish Confirmation Screen -->
+    <!-- View 4: Finish / Already Completed Screen -->
     <section class="card setup-view" id="view-finished" style="display: none;">
       <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
-      <h2 class="setup-title">Recordings Submitted!</h2>
-      <p class="setup-desc">
+      <h2 class="setup-title" id="finished-title">Recordings Submitted!</h2>
+      <p class="setup-desc" id="finished-desc">
         Your voice samples have been saved to your configured destination folder.
         Your AI examiner is now ready to evaluate your pronunciation, fluency, grammar, and TOEIC Speaking scaled score.
       </p>
-      <div style="font-size: 0.9rem; color: var(--text-muted); background: rgba(0,0,0,0.25); padding: 1rem; border-radius: 8px;">
+      <div id="finished-meta" style="font-size: 0.9rem; color: var(--text-muted); background: rgba(0,0,0,0.25); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
         You can now return to your conversation with the model.
       </div>
+      <button class="btn btn-primary" id="btn-view-submitted-recordings" style="font-size: 0.95rem; padding: 0.75rem 1.5rem;">
+        🎧 Listen to Submitted Audio
+      </button>
     </section>
 
   </main>

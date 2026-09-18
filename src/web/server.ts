@@ -59,6 +59,22 @@ export function createExpressApp(): express.Express {
     res.json(session);
   });
 
+  // Serve audio recording files for review/playback
+  app.get("/api/sessions/:id/recordings/:filename", (req, res) => {
+    const sessionId = String(req.params.id);
+    const session = getSession(sessionId);
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+    const filename = path.basename(String(req.params.filename));
+    const filePath = path.join(session.recordingsDir, filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "Recording file not found" });
+    }
+    res.setHeader("Content-Type", "audio/webm");
+    res.sendFile(filePath);
+  });
+
   // Upload question recording
   app.post(
     "/api/sessions/:id/recordings",
@@ -69,6 +85,11 @@ export function createExpressApp(): express.Express {
 
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
+      }
+
+      // Prevent retakes and overwrite if session is already completed
+      if (session.status === "completed") {
+        return res.status(403).json({ error: "Session has already been submitted and is locked." });
       }
 
       const file = req.file;

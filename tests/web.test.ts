@@ -75,7 +75,24 @@ test("Web API: records audio upload and finishes session", async () => {
   const submitData = (await submitRes.json()) as any;
   assert.equal(submitData.status, "completed");
 
-  // 5. Test get_test_submission tool returns the completed session with valid file paths
+  // 5. Verify that attempting to upload to a completed session is rejected (HTTP 403)
+  const rejectedUploadRes = await fetch(`http://localhost:${port}/api/sessions/${session.id}/recordings`, {
+    method: "POST",
+    headers: {
+      "Content-Type": `multipart/form-data; boundary=${boundary}`,
+    },
+    body: payload,
+  });
+  assert.equal(rejectedUploadRes.status, 403);
+  const rejectData = (await rejectedUploadRes.json()) as any;
+  assert.ok(rejectData.error.includes("already been submitted"));
+
+  // 6. Verify audio file serving endpoint works for playback
+  const audioFetchRes = await fetch(`http://localhost:${port}/api/sessions/${session.id}/recordings/q1.webm`);
+  assert.equal(audioFetchRes.status, 200);
+  assert.ok(audioFetchRes.headers.get("content-type")?.includes("audio/webm"));
+
+  // 7. Test get_test_submission tool returns the completed session with valid file paths
   const toolRes = await handleGetTestSubmission({
     session_id: session.id,
   });

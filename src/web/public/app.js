@@ -89,6 +89,12 @@ async function init() {
     const res = await fetch(`/api/sessions/${sessionId}`);
     if (!res.ok) throw new Error("Failed to load session details");
     sessionData = await res.json();
+
+    // Check if session has already been completed / submitted
+    if (sessionData.status === "completed") {
+      handleAlreadyCompletedSession();
+      return;
+    }
     
     setupExamSummary.innerHTML = `
       <strong>${sessionData.questions.length}</strong> speaking questions loaded.<br>
@@ -100,6 +106,63 @@ async function init() {
   }
 
   setupEventListeners();
+}
+
+function handleAlreadyCompletedSession() {
+  viewSetup.style.display = "none";
+  viewExam.style.display = "none";
+  viewReview.style.display = "none";
+  viewFinished.style.display = "block";
+
+  const finishedTitle = document.getElementById("finished-title");
+  const finishedDesc = document.getElementById("finished-desc");
+  const finishedMeta = document.getElementById("finished-meta");
+  const btnViewSubmitted = document.getElementById("btn-view-submitted-recordings");
+
+  if (finishedTitle) {
+    finishedTitle.textContent = "Test Session Completed & Locked";
+  }
+
+  if (finishedDesc) {
+    const completedDate = sessionData.completedAt 
+      ? new Date(sessionData.completedAt).toLocaleString() 
+      : "earlier";
+    finishedDesc.innerHTML = `
+      This test session was already completed and submitted on <strong>${completedDate}</strong>.<br>
+      Your voice recordings have been saved and sent to your AI examiner for evaluation.
+      To preserve the integrity of the test, this session cannot be restarted.
+    `;
+  }
+
+  if (finishedMeta) {
+    finishedMeta.textContent = "You can return to your chat with the model to view your feedback and TOEIC score breakdown.";
+  }
+
+  // Populate questionBlobs from server submissions so user can listen to submitted audio
+  if (sessionData.submissions) {
+    Object.values(sessionData.submissions).forEach((sub) => {
+      questionBlobs[sub.questionNumber] = {
+        blob: null,
+        url: `/api/sessions/${sessionId}/recordings/${sub.audioFileName}`,
+        duration: sub.durationSeconds,
+        question: sessionData.questions.find((q) => q.questionNumber === sub.questionNumber)
+      };
+    });
+  }
+
+  if (btnViewSubmitted) {
+    btnViewSubmitted.addEventListener("click", () => {
+      viewFinished.style.display = "none";
+      viewReview.style.display = "flex";
+      renderReviewList();
+      
+      // Update submit button to read-only locked state
+      btnSubmitEvaluation.disabled = true;
+      btnSubmitEvaluation.textContent = "✅ Session Submitted & Locked";
+      btnSubmitEvaluation.style.opacity = "0.7";
+      btnSubmitEvaluation.style.cursor = "default";
+    });
+  }
 }
 
 function setupEventListeners() {

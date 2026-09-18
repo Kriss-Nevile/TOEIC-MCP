@@ -7,6 +7,7 @@ let sessionData = null;
 let currentQuestionIndex = 0;
 let mediaStream = null;
 let wavRecorder = null;
+let activeRerecord = null;
 let questionBlobs = {}; // questionNumber -> { blob, url, duration }
 
 // Audio Visualizer
@@ -141,14 +142,14 @@ function handleAlreadyCompletedSession() {
       ? new Date(sessionData.completedAt).toLocaleString() 
       : "earlier";
     finishedDesc.innerHTML = `
-      This test session was already completed and submitted on <strong>${completedDate}</strong>.<br>
-      Your voice recordings have been saved and sent to your AI examiner for evaluation.
-      To preserve the integrity of the test, this session cannot be restarted.
+      This test session was completed on <strong>${completedDate}</strong>.<br>
+      Your voice recordings are saved locally in your configured storage directory.
+      To preserve test integrity, completed sessions cannot be restarted.
     `;
   }
 
   if (finishedMeta) {
-    finishedMeta.textContent = "You can return to your chat with the model to view your feedback and TOEIC score breakdown.";
+    finishedMeta.textContent = "Return to your chat and ask your AI agent to retrieve the recordings and generate your evaluation.";
   }
 
   // Populate questionBlobs from server submissions so user can listen to submitted audio
@@ -171,18 +172,18 @@ function openSubmittedAudioReview() {
   const reviewTitle = document.getElementById("review-title");
   const reviewDesc = document.getElementById("review-desc");
   if (reviewTitle) {
-    reviewTitle.textContent = "Submitted Voice Recordings";
+    reviewTitle.textContent = "Recorded Voice Samples";
   }
   if (reviewDesc) {
     reviewDesc.textContent =
-      "Listen back to the voice recordings that were submitted to your AI examiner for evaluation.";
+      "Listen back to the voice recordings saved locally for this test session.";
   }
 
   renderReviewList();
 
   // Update submit button to a navigation button allowing return to the completion screen
   btnSubmitEvaluation.disabled = false;
-  btnSubmitEvaluation.textContent = "← Return to Completion Screen";
+  btnSubmitEvaluation.textContent = "← Return to Summary Screen";
   btnSubmitEvaluation.classList.remove("btn-success");
   btnSubmitEvaluation.classList.add("btn-primary");
   btnSubmitEvaluation.style.opacity = "1";
@@ -196,7 +197,7 @@ function openSubmittedAudioReview() {
 function setupEventListeners() {
   btnRequestMic.addEventListener("click", enableMicrophone);
   btnStartExam.addEventListener("click", startExam);
-  btnSubmitEvaluation.addEventListener("click", submitFinalEvaluation);
+  btnSubmitEvaluation.addEventListener("click", saveAllRecordings);
 
   if (btnViewSubmitted) {
     btnViewSubmitted.addEventListener("click", openSubmittedAudioReview);
@@ -215,7 +216,7 @@ async function enableMicrophone() {
         autoGainControl: true
       }
     });
-    btnRequestMic.textContent = "✅ Microphone Connected";
+    btnRequestMic.textContent = "Microphone Connected";
     btnRequestMic.classList.remove("btn-primary");
     btnRequestMic.classList.add("btn-success");
     btnStartExam.disabled = false;
@@ -402,9 +403,7 @@ async function stopRecordingAndNext(question) {
         duration: durationSeconds,
         question
       };
-
-      // Upload lossless WAV recording in background
-      await uploadQuestionAudio(question.questionNumber, wavBlob, durationSeconds);
+      // Audio is held in memory for review. Upload to storage occurs when "Save All Recordings" is clicked.
     } catch (err) {
       console.error("Failed to stop and process WAV recording:", err);
     }
@@ -421,20 +420,15 @@ async function uploadQuestionAudio(questionNumber, blob, durationSeconds) {
   formData.append("durationSeconds", String(durationSeconds));
   formData.append("audio", blob, `q${questionNumber}.wav`);
 
-  try {
-    const res = await fetch(`/api/sessions/${sessionId}/recordings`, {
-      method: "POST",
-      body: formData
-    });
-    if (!res.ok) {
-      console.error(`Failed to upload audio for question ${questionNumber}`);
-    }
-  } catch (err) {
-    console.error(`Network error uploading audio for question ${questionNumber}:`, err);
+  const res = await fetch(`/api/sessions/${sessionId}/recordings`, {
+    method: "POST",
+    body: formData
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to upload audio for question ${questionNumber}`);
   }
 }
 
-// Review & Finish
 function finishExam() {
   clearInterval(timerInterval);
   viewExam.style.display = "none";
@@ -442,12 +436,12 @@ function finishExam() {
 
   const reviewTitle = document.getElementById("review-title");
   const reviewDesc = document.getElementById("review-desc");
-  if (reviewTitle && sessionData.isDrill) {
-    reviewTitle.textContent = "Drill Completed!";
+  if (reviewTitle) {
+    reviewTitle.textContent = "Review Your Recordings";
   }
-  if (reviewDesc && sessionData.isDrill) {
+  if (reviewDesc) {
     reviewDesc.textContent =
-      "You have recorded all selected drill questions. You can review and listen back to your voice samples before submitting to the evaluator.";
+      "Listen back to your recorded answers in memory. You can re-record any question if needed. When ready, click below to save everything to your storage folder.";
   }
 
   renderReviewList();
@@ -465,6 +459,7 @@ function escapeHtml(str) {
 
 function renderReviewList() {
   reviewList.innerHTML = "";
+  const isCompleted = sessionData && sessionData.status === "completed";
 
   sessionData.questions.forEach((q) => {
     const card = document.createElement("div");
@@ -493,7 +488,7 @@ function renderReviewList() {
           <span class="badge badge-part">${conf.badge}</span>
         </div>
         <div class="review-card-meta">
-          <span class="review-duration-tag">⏱️ ${durationSec}s recorded</span>
+          <span class="review-duration-tag" id="duration-tag-${q.questionNumber}">${durationSec}s recorded</span>
         </div>
       </div>
 
@@ -515,15 +510,21 @@ function renderReviewList() {
         ` : ""}
       </div>
 
-      <div class="review-playback-box">
+      <div class="review-playback-box" id="playback-box-${q.questionNumber}">
         <div class="playback-label">
-          <span>🎙️</span>
-          <span>Playback Voice Recording:</span>
+          <span>Voice Recording:</span>
         </div>
         ${url 
           ? `<audio class="review-audio-player" controls preload="metadata" src="${url}"></audio>` 
           : `<span class="review-missing">No voice recording captured</span>`
         }
+        ${!isCompleted ? `
+          <div class="review-card-actions">
+            <button type="button" class="btn-rerecord" id="btn-rerecord-${q.questionNumber}" data-q="${q.questionNumber}">
+              Re-record Answer
+            </button>
+          </div>
+        ` : ""}
       </div>
     `;
 
@@ -549,28 +550,132 @@ function renderReviewList() {
       });
     }
 
+    // Connect re-record button
+    if (!isCompleted) {
+      const rerecordBtn = card.querySelector(`#btn-rerecord-${q.questionNumber}`);
+      if (rerecordBtn) {
+        rerecordBtn.addEventListener("click", () => {
+          startRerecording(q, card);
+        });
+      }
+    }
+
     reviewList.appendChild(card);
   });
 }
 
-async function submitFinalEvaluation() {
+async function startRerecording(question, card) {
+  if (activeRerecord) {
+    await stopActiveRerecord();
+  }
+
+  const playbackBox = card.querySelector(`#playback-box-${question.questionNumber}`);
+  if (!playbackBox) return;
+
+  const totalTime = question.responseTimeSeconds || 45;
+  let remaining = totalTime;
+
+  playbackBox.innerHTML = `
+    <div class="rerecord-panel" id="rerecord-panel-${question.questionNumber}">
+      <div class="rerecord-status">
+        <div class="rerecord-pulse"></div>
+        <span>Recording Answer: <strong id="rerecord-countdown-${question.questionNumber}">${remaining}</strong>s remaining</span>
+      </div>
+      <button type="button" class="btn btn-danger" id="btn-stop-rerecord-${question.questionNumber}" style="padding: 0.4rem 1rem; font-size: 0.85rem; border-radius: 6px;">
+        Stop & Save
+      </button>
+    </div>
+  `;
+
   btnSubmitEvaluation.disabled = true;
-  btnSubmitEvaluation.textContent = "⏳ Finalizing Submission...";
+  playStartBeep();
+
+  const recorder = new WavAudioRecorder(audioContext, mediaStream);
+  await recorder.start();
+
+  const countdownEl = playbackBox.querySelector(`#rerecord-countdown-${question.questionNumber}`);
+  const stopBtn = playbackBox.querySelector(`#btn-stop-rerecord-${question.questionNumber}`);
+
+  const interval = setInterval(async () => {
+    remaining--;
+    if (countdownEl) countdownEl.textContent = String(remaining);
+    if (remaining <= 0) {
+      await finishRerecord();
+    }
+  }, 1000);
+
+  async function finishRerecord() {
+    clearInterval(interval);
+    playChime();
+    try {
+      const { blob: wavBlob, durationSeconds } = await recorder.stop();
+      const audioUrl = URL.createObjectURL(wavBlob);
+      questionBlobs[question.questionNumber] = {
+        blob: wavBlob,
+        url: audioUrl,
+        duration: durationSeconds,
+        question
+      };
+    } catch (err) {
+      console.error("Re-recording failed:", err);
+    }
+    activeRerecord = null;
+    btnSubmitEvaluation.disabled = false;
+    renderReviewList();
+  }
+
+  activeRerecord = { finish: finishRerecord };
+
+  if (stopBtn) {
+    stopBtn.addEventListener("click", finishRerecord);
+  }
+}
+
+async function stopActiveRerecord() {
+  if (activeRerecord && typeof activeRerecord.finish === "function") {
+    await activeRerecord.finish();
+  }
+}
+
+async function saveAllRecordings() {
+  if (activeRerecord) {
+    await stopActiveRerecord();
+  }
+
+  btnSubmitEvaluation.disabled = true;
+  btnSubmitEvaluation.textContent = "Saving Recordings...";
 
   try {
+    const entries = Object.entries(questionBlobs);
+    const validEntries = entries.filter(([, item]) => item.blob);
+    const total = validEntries.length;
+    let saved = 0;
+
+    for (const [qNumStr, item] of validEntries) {
+      saved++;
+      btnSubmitEvaluation.textContent = `Saving Recordings (${saved}/${total})...`;
+      await uploadQuestionAudio(Number(qNumStr), item.blob, item.duration);
+    }
+
+    btnSubmitEvaluation.textContent = "Completing Session...";
     const res = await fetch(`/api/sessions/${sessionId}/submit`, {
       method: "POST"
     });
 
-    if (!res.ok) throw new Error("Failed to finalize submission on server");
+    if (!res.ok) throw new Error("Failed to complete session on server");
 
-    btnSubmitEvaluation.removeEventListener("click", submitFinalEvaluation);
+    if (sessionData) {
+      sessionData.status = "completed";
+      sessionData.completedAt = new Date().toISOString();
+    }
+
+    btnSubmitEvaluation.removeEventListener("click", saveAllRecordings);
     viewReview.style.display = "none";
     viewFinished.style.display = "block";
   } catch (err) {
-    alert(`Submission error: ${err.message}`);
+    alert(`Save error: ${err.message}`);
     btnSubmitEvaluation.disabled = false;
-    btnSubmitEvaluation.textContent = "🚀 Submit Recordings to AI Agent";
+    btnSubmitEvaluation.textContent = "Save All Recordings";
   }
 }
 

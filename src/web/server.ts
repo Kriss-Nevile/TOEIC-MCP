@@ -24,9 +24,10 @@ const storage = multer.diskStorage({
     }
     cb(null, session.recordingsDir);
   },
-  filename: (req, _file, cb) => {
+  filename: (req, file, cb) => {
     const questionNumber = req.body.questionNumber || "unknown";
-    cb(null, `q${questionNumber}.webm`);
+    const ext = path.extname(file.originalname) || (file.mimetype === "audio/wav" ? ".wav" : ".webm");
+    cb(null, `q${questionNumber}${ext}`);
   }
 });
 
@@ -71,7 +72,15 @@ export function createExpressApp(): express.Express {
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({ error: "Recording file not found" });
     }
-    res.setHeader("Content-Type", "audio/webm");
+    const ext = path.extname(filename).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      ".wav": "audio/wav",
+      ".webm": "audio/webm",
+      ".weba": "audio/webm",
+      ".mp3": "audio/mpeg",
+      ".ogg": "audio/ogg",
+    };
+    res.setHeader("Content-Type", mimeMap[ext] || "application/octet-stream");
     res.sendFile(filePath);
   });
 

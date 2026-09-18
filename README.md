@@ -17,7 +17,7 @@ Authentic TOEIC Speaking preparation requires spoken responses delivered under r
 
 - **Session Orchestration**: Models generate or select speaking questions and launch dedicated testing sessions. Sessions can encompass the complete 11-question exam or focus on specific question types through targeted drills.
 - **Candidate Interface**: Candidates complete assessments in a dedicated local web interface featuring microphone verification, timed preparation and response intervals, and response review capabilities.
-- **Local Audio Management**: Spoken responses are captured and written directly to the host filesystem within a designated storage directory, accompanied by session metadata.
+- **Lossless Audio Management**: Spoken responses are recorded in studio-grade uncompressed 16-bit linear PCM WAV format (48 kHz mono) and saved directly to the host filesystem, providing the highest possible acoustic fidelity for pronunciation analysis and native desktop playback.
 - **Evaluation Infrastructure**: Pre-configured evaluation prompts guide models in assessing candidate recordings against official ETS criteria (pronunciation, intonation, grammatical accuracy, vocabulary breadth, and topic development) to project scaled scores (0–200, Levels 1–8).
 
 ---
@@ -59,6 +59,8 @@ Server behavior and default paths are configured via `toeic.config.json` in the 
 - **`webServerPort`**: Port assigned to the local web simulator.
 - **`autoOpenBrowser`**: Controls whether the default web browser is launched automatically upon session creation.
 - **`httpTransportPort`**: Default listening port when the server is executed in HTTP mode.
+
+> **Workspace Tip**: When practicing and running mock tests with agents, it is recommended to operate within a dedicated training directory or configure `audioStorageDir` with an absolute path. This ensures all session audio tracks and metadata files generated across drills remain cleanly centralized and isolated in a designated folder rather than accumulating in general project workspaces.
 
 ---
 

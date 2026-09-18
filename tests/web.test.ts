@@ -45,8 +45,8 @@ test("Web API: records audio upload and finishes session", async () => {
     "",
     "42",
     `--${boundary}`,
-    'Content-Disposition: form-data; name="audio"; filename="q1.webm"',
-    "Content-Type: audio/webm",
+    'Content-Disposition: form-data; name="audio"; filename="q1.wav"',
+    "Content-Type: audio/wav",
     "",
     fakeAudioContent,
     `--${boundary}--`,
@@ -65,6 +65,7 @@ test("Web API: records audio upload and finishes session", async () => {
   const uploadData = (await uploadRes.json()) as any;
   assert.equal(uploadData.success, true);
   assert.equal(uploadData.submission.questionNumber, 1);
+  assert.equal(uploadData.submission.audioFileName, "q1.wav");
   assert.ok(fs.existsSync(uploadData.submission.audioFilePath));
 
   // 4. Submit session via POST /api/sessions/:id/submit
@@ -88,9 +89,9 @@ test("Web API: records audio upload and finishes session", async () => {
   assert.ok(rejectData.error.includes("already been submitted"));
 
   // 6. Verify audio file serving endpoint works for playback
-  const audioFetchRes = await fetch(`http://localhost:${port}/api/sessions/${session.id}/recordings/q1.webm`);
+  const audioFetchRes = await fetch(`http://localhost:${port}/api/sessions/${session.id}/recordings/q1.wav`);
   assert.equal(audioFetchRes.status, 200);
-  assert.ok(audioFetchRes.headers.get("content-type")?.includes("audio/webm"));
+  assert.ok(audioFetchRes.headers.get("content-type")?.includes("audio/wav"));
 
   // 7. Test get_test_submission tool returns the completed session with valid file paths
   const toolRes = await handleGetTestSubmission({
@@ -102,7 +103,7 @@ test("Web API: records audio upload and finishes session", async () => {
   assert.equal(parsedToolRes.is_ready_for_evaluation, true);
   assert.equal(parsedToolRes.recordings_count, 1);
   assert.equal(parsedToolRes.recordings[0].file_exists, true);
-  assert.equal(parsedToolRes.recordings[0].audio_file_name, "q1.webm");
+  assert.equal(parsedToolRes.recordings[0].audio_file_name, "q1.wav");
   assert.equal(parsedToolRes.recordings[0].duration_seconds, 42);
 
   // Clean up

@@ -1,12 +1,12 @@
 import { playStartBeep, playChime } from "./sounds.js";
+import { WavAudioRecorder } from "./wav-recorder.js";
 
 // App State
 let sessionId = null;
 let sessionData = null;
 let currentQuestionIndex = 0;
 let mediaStream = null;
-let mediaRecorder = null;
-let recordedChunks = [];
+let wavRecorder = null;
 let questionBlobs = {}; // questionNumber -> { blob, url, duration }
 
 // Audio Visualizer
@@ -48,6 +48,7 @@ const micWaveBars = document.querySelectorAll(".wave-bar");
 
 const reviewList = document.getElementById("review-list");
 const btnSubmitEvaluation = document.getElementById("btn-submit-evaluation");
+const btnViewSubmitted = document.getElementById("btn-view-submitted-recordings");
 
 // Question Type Labels & Instructions
 const TYPE_CONFIG = {
@@ -93,6 +94,7 @@ async function init() {
     // Check if session has already been completed / submitted
     if (sessionData.status === "completed") {
       handleAlreadyCompletedSession();
+      setupEventListeners();
       return;
     }
 
@@ -129,7 +131,6 @@ function handleAlreadyCompletedSession() {
   const finishedTitle = document.getElementById("finished-title");
   const finishedDesc = document.getElementById("finished-desc");
   const finishedMeta = document.getElementById("finished-meta");
-  const btnViewSubmitted = document.getElementById("btn-view-submitted-recordings");
 
   if (finishedTitle) {
     finishedTitle.textContent = "Test Session Completed & Locked";
@@ -161,32 +162,59 @@ function handleAlreadyCompletedSession() {
       };
     });
   }
+}
 
-  if (btnViewSubmitted) {
-    btnViewSubmitted.addEventListener("click", () => {
-      viewFinished.style.display = "none";
-      viewReview.style.display = "flex";
-      renderReviewList();
-      
-      // Update submit button to read-only locked state
-      btnSubmitEvaluation.disabled = true;
-      btnSubmitEvaluation.textContent = "✅ Session Submitted & Locked";
-      btnSubmitEvaluation.style.opacity = "0.7";
-      btnSubmitEvaluation.style.cursor = "default";
-    });
+function openSubmittedAudioReview() {
+  viewFinished.style.display = "none";
+  viewReview.style.display = "flex";
+
+  const reviewTitle = document.getElementById("review-title");
+  const reviewDesc = document.getElementById("review-desc");
+  if (reviewTitle) {
+    reviewTitle.textContent = "Submitted Voice Recordings";
   }
+  if (reviewDesc) {
+    reviewDesc.textContent =
+      "Listen back to the voice recordings that were submitted to your AI examiner for evaluation.";
+  }
+
+  renderReviewList();
+
+  // Update submit button to a navigation button allowing return to the completion screen
+  btnSubmitEvaluation.disabled = false;
+  btnSubmitEvaluation.textContent = "← Return to Completion Screen";
+  btnSubmitEvaluation.classList.remove("btn-success");
+  btnSubmitEvaluation.classList.add("btn-primary");
+  btnSubmitEvaluation.style.opacity = "1";
+  btnSubmitEvaluation.style.cursor = "pointer";
+  btnSubmitEvaluation.onclick = () => {
+    viewReview.style.display = "none";
+    viewFinished.style.display = "block";
+  };
 }
 
 function setupEventListeners() {
   btnRequestMic.addEventListener("click", enableMicrophone);
   btnStartExam.addEventListener("click", startExam);
   btnSubmitEvaluation.addEventListener("click", submitFinalEvaluation);
+
+  if (btnViewSubmitted) {
+    btnViewSubmitted.addEventListener("click", openSubmittedAudioReview);
+  }
 }
 
 // Microphone Setup & Audio Meter
 async function enableMicrophone() {
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        sampleRate: { ideal: 48000, min: 44100 },
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
     btnRequestMic.textContent = "✅ Microphone Connected";
     btnRequestMic.classList.remove("btn-primary");
     btnRequestMic.classList.add("btn-success");
@@ -350,80 +378,48 @@ function updateTimerDisplay() {
   timerProgressBar.style.width = `${pct}%`;
 }
 
-// Media Recording
-let recordingStartTime = 0;
-
-function startRecording(question) {
-  recordedChunks = [];
-  recordingStartTime = Date.now();
+// High-Fidelity WAV Recording
+async function startRecording(question) {
   try {
-    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-      ? "audio/webm;codecs=opus"
-      : "audio/webm";
-
-    mediaRecorder = new MediaRecorder(mediaStream, { mimeType });
-
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        recordedChunks.push(event.data);
-      }
-    };
-
-    mediaRecorder.start(250); // Slice every 250ms
+    wavRecorder = new WavAudioRecorder(audioContext, mediaStream);
+    await wavRecorder.start();
   } catch (err) {
-    console.error("Failed to start MediaRecorder:", err);
+    console.error("Failed to start WavAudioRecorder:", err);
   }
 }
 
-function stopRecordingAndNext(question) {
+async function stopRecordingAndNext(question) {
   playChime();
 
-  if (mediaRecorder && mediaRecorder.state !== "inactive") {
-    mediaRecorder.onstop = async () => {
-      const mimeType = mediaRecorder.mimeType || "audio/webm";
-      const rawBlob = new Blob(recordedChunks, { type: mimeType });
-      const elapsedMs = Math.max(1000, Date.now() - recordingStartTime);
-      const durationSeconds = Math.round(elapsedMs / 1000);
-
-      // Fix WebM seeking bug by injecting duration header into EBML container
-      let finalBlob = rawBlob;
-      if (typeof window.ysFixWebmDuration === "function") {
-        try {
-          finalBlob = await window.ysFixWebmDuration(rawBlob, elapsedMs);
-        } catch (err) {
-          console.warn("Could not patch WebM duration:", err);
-        }
-      }
-
-      const audioUrl = URL.createObjectURL(finalBlob);
+  if (wavRecorder && wavRecorder.isRecording) {
+    try {
+      const { blob: wavBlob, durationSeconds } = await wavRecorder.stop();
+      const audioUrl = URL.createObjectURL(wavBlob);
 
       questionBlobs[question.questionNumber] = {
-        blob: finalBlob,
+        blob: wavBlob,
         url: audioUrl,
         duration: durationSeconds,
         question
       };
 
-      // Upload recording immediately in background
-      await uploadQuestionAudio(question.questionNumber, finalBlob, durationSeconds);
-
-      // Move to next question
-      currentQuestionIndex++;
-      loadCurrentQuestion();
-    };
-
-    mediaRecorder.stop();
-  } else {
-    currentQuestionIndex++;
-    loadCurrentQuestion();
+      // Upload lossless WAV recording in background
+      await uploadQuestionAudio(question.questionNumber, wavBlob, durationSeconds);
+    } catch (err) {
+      console.error("Failed to stop and process WAV recording:", err);
+    }
   }
+
+  // Move to next question
+  currentQuestionIndex++;
+  loadCurrentQuestion();
 }
 
 async function uploadQuestionAudio(questionNumber, blob, durationSeconds) {
   const formData = new FormData();
   formData.append("questionNumber", String(questionNumber));
   formData.append("durationSeconds", String(durationSeconds));
-  formData.append("audio", blob, `q${questionNumber}.webm`);
+  formData.append("audio", blob, `q${questionNumber}.wav`);
 
   try {
     const res = await fetch(`/api/sessions/${sessionId}/recordings`, {
@@ -568,6 +564,7 @@ async function submitFinalEvaluation() {
 
     if (!res.ok) throw new Error("Failed to finalize submission on server");
 
+    btnSubmitEvaluation.removeEventListener("click", submitFinalEvaluation);
     viewReview.style.display = "none";
     viewFinished.style.display = "block";
   } catch (err) {

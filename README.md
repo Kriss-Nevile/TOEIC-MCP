@@ -82,27 +82,58 @@ Persistent settings can be configured in `toeic.config.json`:
 - **`webServerPort`**: Port for the local browser simulation web application.
 - **`autoOpenBrowser`**: Automatically open the system default web browser when a test is launched.
 - **`httpTransportPort`**: Default port for the HTTP/SSE MCP transport.
-- `generate_targeted_lesson`: Generates focused mini-lessons for recurring mistake patterns.
 
 ---
 
-## 🚀 Quickstart & Usage
+## 🚀 Quickstart & Client Setup
 
-### 1. Stdio Mode (for Claude Desktop / Local Agents)
+### Option A: Direct via `npx` (No Local Install Required)
+Add this to your client's MCP configuration (e.g. `mcp_config.json`, Claude Desktop `claude_desktop_config.json`, or Cursor):
+
 ```json
 {
   "mcpServers": {
     "toeic-trainer": {
-      "command": "node",
-      "args": ["dist/index.js", "--transport", "stdio"]
+      "command": "npx",
+      "args": [
+        "-y",
+        "toeic-trainer-mcp",
+        "--transport",
+        "stdio"
+      ]
     }
   }
 }
 ```
 
-### 2. HTTP / SSE Mode (for Remote Hosts & Microservices)
+### Option B: Local Repository (Clone & Link)
+If developing locally or cloning the repository:
+
+1. Clone and build:
+   ```bash
+   git clone https://github.com/Kriss-Nevile/TOEIC-Trainer.git
+   cd TOEIC-Trainer
+   npm install
+   npm run build
+   npm link
+   ```
+2. Configure your MCP client:
+   ```json
+   {
+     "mcpServers": {
+       "toeic-trainer": {
+         "command": "toeic-trainer",
+         "args": ["--transport", "stdio"]
+       }
+     }
+   }
+   ```
+
+### Option C: Remote HTTP / SSE Mode
 ```bash
-# Start server on default port 3001
+# Start server with SSE transport
+toeic-trainer --transport http --port 3001
+# Or from local source:
 node dist/index.js --transport http --port 3001
 ```
 

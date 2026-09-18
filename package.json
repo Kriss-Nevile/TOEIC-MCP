@@ -3,6 +3,15 @@
   "version": "1.0.0",
   "description": "Model Context Protocol (MCP) server for TOEIC exam simulation, training, and evaluation",
   "main": "dist/index.js",
+  "bin": {
+    "toeic-trainer": "./dist/index.js",
+    "toeic-trainer-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "toeic.config.json"
+  ],
   "type": "module",
   "scripts": {
     "build": "tsc && node -e \"const fs = require('fs'); fs.cpSync('src/web/public', 'dist/web/public', {recursive: true});\"",

@@ -1,73 +1,50 @@
 # TOEIC Trainer MCP Server
 
-An official **Model Context Protocol (MCP)** server providing tools and skills for AI models to simulate, train, and evaluate TOEIC (Test of English for International Communication) examinations over both **stdio** and **HTTP (SSE)** transports.
+[![CI](https://github.com/Kriss-Nevile/TOEIC-Trainer/actions/workflows/ci.yml/badge.svg)](https://github.com/Kriss-Nevile/TOEIC-Trainer/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io)
+[![Node Version](https://img.shields.io/badge/Node.js-20%2B-brightgreen.svg)](https://nodejs.org)
+
+An open-source Model Context Protocol (MCP) server that enables AI agents to administer interactive TOEIC Speaking examinations, execute targeted drills, manage local audio response recordings, and perform rubric-based evaluations.
+
+The server supports standard input/output (`stdio`) for local host environments (such as Claude Desktop, Antigravity IDE, and Cursor) as well as HTTP with Server-Sent Events (`SSE`) for remote or multi-agent deployments.
 
 ---
 
-## 🎯 Key Features
+## Overview
 
-- **Dual Transport Flexibility**:
-  - `stdio`: Plug-and-play with local MCP hosts (Claude Desktop, Cursor, Antigravity IDE).
-  - `HTTP / SSE`: Remote API and multi-session web integration with Server-Sent Events.
-- **Realistic Exam Simulation**:
-  - Supports full 200-question mock exams or focused part-by-part practice (Parts 1 to 7).
-  - Accurate timing and section constraints (Listening: ~45 min, Reading: 75 min).
-  - Calibrated ETS raw-to-scaled score conversion (5–495 per section, 10–990 total).
-- **In-Depth Diagnostic & Evaluation Skills**:
-  - Rubric-grounded evaluation for every question response.
-  - Distractor trap classification (phonetic traps, non-sequiturs, word form confusions, scope traps).
-  - CEFR / ETS competency skill breakdown and personalized remediation takeaways.
-- **Adaptive Drills & Targeted Practice**:
-  - On-demand generation and filtering of questions by difficulty, grammar rule, or business domain.
+Authentic TOEIC Speaking preparation requires spoken responses delivered under realistic exam time constraints. This server provides the infrastructure for AI models to orchestrate oral examinations:
+
+- **Session Orchestration**: Models generate or select speaking questions and launch dedicated testing sessions. Sessions can encompass the complete 11-question exam or focus on specific question types through targeted drills.
+- **Candidate Interface**: Candidates complete assessments in a dedicated local web interface featuring microphone verification, timed preparation and response intervals, and response review capabilities.
+- **Local Audio Management**: Spoken responses are captured and written directly to the host filesystem within a designated storage directory, accompanied by session metadata.
+- **Evaluation Infrastructure**: Pre-configured evaluation prompts guide models in assessing candidate recordings against official ETS criteria (pronunciation, intonation, grammatical accuracy, vocabulary breadth, and topic development) to project scaled scores (0–200, Levels 1–8).
 
 ---
 
-## 🏗️ Transports & Architecture
-
-```
-[ MCP Clients / Models ]
-       │            │
-       │ stdio      │ HTTP / SSE
-       ▼            ▼
-[ Stdio Adapter ] [ HTTP Server (/sse, /messages) ]
-       └────────────┬────────────┘
-                    ▼
-          [ Core MCP Server ]
-     ┌──────────────┼──────────────┐
-     ▼              ▼              ▼
-[ MCP Tools ]  [ Prompts ]   [ Resources ]
-  - Simulation   - Rubric      - Question Bank
-  - Drills       - Diagnosis   - Score Tables
-  - Submissions  - Lessons     - Transcripts
-```
-
----
-
-## 📋 Available MCP Capabilities
+## Available Capabilities
 
 ### Tools
-- `launch_speaking_test`: Launches a local browser app simulating a TOEIC Speaking exam or targeted practice drill (with optional `selected_question_numbers` and `session_title`). Voice recordings are saved to the configured destination folder.
-- `get_test_submission`: Retrieves the recorded audio samples and submission status from the configured directory once the candidate submits.
-- `start_test_session`: Initiate a full mock or modular practice session.
-- `get_next_question`: Retrieve questions without answer keys.
-- `submit_answer`: Record responses and receive timing feedback.
-- `finish_test_session`: Compute scaled score, ETS band, and comprehensive breakdown.
-- `get_session_status`: Check remaining time and answered question indices.
-- `generate_drill`: Request targeted questions for a specific part or grammar area.
-- `search_question_bank`: Query questions by grammar tag, keyword, or context.
-- `get_audio_transcript`: Access spoken transcripts for listening questions.
 
-### MCP Prompts
-- `evaluate_speaking_test`: Rubric-grounded prompt for evaluating candidate voice recordings against official ETS TOEIC Speaking criteria (0–200 scaled score, Levels 1–8).
-- `evaluate_question`: Prompts the model to perform deep distractor analysis, trap classification (phonetic, non-sequitur, word form, scope), and actionable remediation takeaways for any Part 1–7 question.
-- `diagnose_weaknesses`: Synthesizes completed exam session results into a vulnerability matrix across parts, classifies error root causes, and generates a prioritized 3-phase study roadmap.
-- `generate_targeted_lesson`: Generates focused mini-lessons with core grammar/vocabulary principles, ETS trap blueprints, authentic 3-question practice drills, and answer commentaries.
+| Tool | Parameters | Description |
+| :--- | :--- | :--- |
+| `launch_speaking_test` | `questions` (SpeakingQuestion[])<br>`selected_question_numbers?` (number[])<br>`session_title?` (string)<br>`output_directory?` (string)<br>`auto_open_browser?` (boolean) | Initializes an examination session and opens the local browser simulator. Accepts an array of question definitions, with optional filtering for targeted drills (e.g. practicing only Question 3 or Questions 1–2). Returns session metadata and local interface URL. |
+| `get_test_submission` | `session_id` (string)<br>`destination_folder?` (string) | Inspects the storage location for a given session and returns submission status, audio file paths, recorded durations, and question metadata for model evaluation. |
+
+### Prompts
+
+| Prompt | Arguments | Description |
+| :--- | :--- | :--- |
+| `evaluate_speaking_test` | `session_id`, `candidate_audio_paths`, `overall_observations?`, `custom_rubric_notes?` | Generates an evaluation prompt structuring candidate analysis against official ETS scoring rubrics across all speaking item types. |
+| `evaluate_question` | `question_payload`, `candidate_response`, `part_number?` | Generates a diagnostic prompt for distractor analysis, trap categorization (phonetic confusion, non-sequiturs, morphological traps, scope errors), and remediation. |
+| `diagnose_weaknesses` | `session_summary`, `error_breakdown`, `target_score?` | Synthesizes performance data into a section-by-section vulnerability matrix with a structured study roadmap. |
+| `generate_targeted_lesson` | `weakness_topic`, `target_part?`, `proficiency_level?` | Produces an educational mini-lesson with underlying rules, common pitfalls, and custom practice drills. |
 
 ---
 
-## ⚙️ Configuration (`toeic.config.json`)
+## Configuration
 
-Persistent settings can be configured in `toeic.config.json`:
+Server behavior and default paths are configured via `toeic.config.json` in the root directory:
 
 ```json
 {
@@ -78,26 +55,53 @@ Persistent settings can be configured in `toeic.config.json`:
 }
 ```
 
-- **`audioStorageDir`**: Target folder where voice recordings are saved (relative or absolute).
-- **`webServerPort`**: Port for the local browser simulation web application.
-- **`autoOpenBrowser`**: Automatically open the system default web browser when a test is launched.
-- **`httpTransportPort`**: Default port for the HTTP/SSE MCP transport.
+- **`audioStorageDir`**: Target directory where session audio files and metadata are written.
+- **`webServerPort`**: Port assigned to the local web simulator.
+- **`autoOpenBrowser`**: Controls whether the default web browser is launched automatically upon session creation.
+- **`httpTransportPort`**: Default listening port when the server is executed in HTTP mode.
 
 ---
 
-## 🚀 Quickstart & Client Setup
+## Installation and Client Setup
 
-### Option A: Direct via `npx` (No Local Install Required)
-Add this to your client's MCP configuration (e.g. `mcp_config.json`, Claude Desktop `claude_desktop_config.json`, or Cursor):
+### Local Installation
+
+```bash
+git clone https://github.com/Kriss-Nevile/TOEIC-Trainer.git
+cd TOEIC-Trainer
+npm install
+npm run build
+npm link
+```
+
+### Client Configuration
+
+#### Claude Desktop
+
+Add the server definition to `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "toeic-trainer": {
-      "command": "npx",
+      "command": "toeic-trainer",
+      "args": ["--transport", "stdio"]
+    }
+  }
+}
+```
+
+#### Antigravity IDE / Cursor
+
+Add the entry to `mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "toeic-trainer": {
+      "command": "node",
       "args": [
-        "-y",
-        "toeic-trainer-mcp",
+        "<PATH_TO_REPOSITORY>/dist/index.js",
         "--transport",
         "stdio"
       ]
@@ -106,44 +110,59 @@ Add this to your client's MCP configuration (e.g. `mcp_config.json`, Claude Desk
 }
 ```
 
-### Option B: Local Repository (Clone & Link)
-If developing locally or cloning the repository:
+#### HTTP / SSE Mode
 
-1. Clone and build:
-   ```bash
-   git clone https://github.com/Kriss-Nevile/TOEIC-Trainer.git
-   cd TOEIC-Trainer
-   npm install
-   npm run build
-   npm link
-   ```
-2. Configure your MCP client:
-   ```json
-   {
-     "mcpServers": {
-       "toeic-trainer": {
-         "command": "toeic-trainer",
-         "args": ["--transport", "stdio"]
-       }
-     }
-   }
-   ```
+For network access or containerized deployments:
 
-### Option C: Remote HTTP / SSE Mode
 ```bash
-# Start server with SSE transport
 toeic-trainer --transport http --port 3001
-# Or from local source:
-node dist/index.js --transport http --port 3001
 ```
 
-Endpoints exposed:
-- `GET /sse`: Persistent Server-Sent Events stream.
-- `POST /messages`: JSON-RPC message dispatcher.
-- `GET /health`: Health and readiness probe.
+Exposed endpoints:
+- `GET /sse`: Server-Sent Events stream for persistent client sessions.
+- `POST /messages`: JSON-RPC request handler.
+- `GET /health`: Readiness and service status endpoint.
 
 ---
 
-## 📖 Context & Instructions for Agents
+## Browser Simulation Environment
 
-For complete developer specifications, domain models, schema requirements, and contributing guidelines, refer to [AGENTS.md](file:///c:/Users/Admin/Desktop/Projects/TOEIC%20Trainer/AGENTS.md).
+The simulation environment provides candidates with an authentic exam setting:
+
+- **Input Calibration**: Live audio meters allow verification of microphone input before testing begins.
+- **Standardized Timing**: Preparation and response countdowns adhere to ETS item timings, accompanied by acoustic signals.
+- **Playback Review**: Recorded responses can be reviewed with seek capability prior to submitting.
+- **Drill Display**: Visual indicators designate full-length mock examinations versus focused skill drills.
+- **State Finalization**: Completed sessions are locked against re-recording to preserve evaluation integrity.
+
+---
+
+## Roadmap
+
+Planned capabilities under active consideration:
+
+- **Listening and Reading Simulator**: Implementation of Parts 1 through 7 with calibrated raw-to-scaled score conversion (5–495).
+- **Curated Question Bank**: Pre-seeded business English question repositories with verified distractors and transcripts.
+- **Automated Transcription**: Optional speech-to-text integration for automated phoneme and vocabulary analysis.
+- **Adaptive Question Selection**: Dynamic session difficulty scaling governed by candidate historical performance.
+
+---
+
+## Contributing
+
+Contributions are welcome. Please refer to [CONTRIBUTING.md](CONTRIBUTING.md) for architectural documentation, testing workflows, and MCP protocol compliance guidelines (including standard stream discipline and structured error formats).
+
+```bash
+npm test
+npm run typecheck
+```
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
+---
+
+*TOEIC® is a registered trademark of Educational Testing Service (ETS). This project is an independent educational tool and is not affiliated with or endorsed by ETS.*

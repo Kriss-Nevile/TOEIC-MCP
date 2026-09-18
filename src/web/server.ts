@@ -152,6 +152,7 @@ export function createExpressApp(): express.Express {
 
 let activeServer: http.Server | null = null;
 let currentPort: number | null = null;
+const activeSockets = new Set<import("node:net").Socket>();
 
 export async function startWebServer(
   desiredPort?: number
@@ -168,6 +169,13 @@ export async function startWebServer(
     const server = app.listen(port, () => {
       activeServer = server;
       currentPort = port;
+      server.unref(); // Crucial: background web server must not prevent Node from exiting cleanly
+
+      server.on("connection", (socket) => {
+        activeSockets.add(socket);
+        socket.on("close", () => activeSockets.delete(socket));
+      });
+
       console.error(`[Web Server] TOEIC Speaking Simulator UI running at http://localhost:${port}`);
       resolve({ app, port, server });
     });
@@ -185,6 +193,11 @@ export async function startWebServer(
 
 export function stopWebServer(): Promise<void> {
   return new Promise((resolve) => {
+    for (const socket of activeSockets) {
+      socket.destroy();
+    }
+    activeSockets.clear();
+
     if (activeServer) {
       activeServer.close(() => {
         activeServer = null;

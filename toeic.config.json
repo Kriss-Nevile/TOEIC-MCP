@@ -1,0 +1,6 @@
+{
+  "audioStorageDir": "./recordings",
+  "webServerPort": 3210,
+  "autoOpenBrowser": true,
+  "httpTransportPort": 3001
+}

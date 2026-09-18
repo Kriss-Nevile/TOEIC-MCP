@@ -1,0 +1,39 @@
+{
+  "name": "toeic-trainer-mcp",
+  "version": "1.0.0",
+  "description": "Model Context Protocol (MCP) server for TOEIC exam simulation, training, and evaluation",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && node -e \"const fs = require('fs'); fs.cpSync('src/web/public', 'dist/web/public', {recursive: true});\"",
+    "start": "node dist/index.js",
+    "dev:stdio": "tsx src/index.ts --transport stdio",
+    "dev:http": "tsx src/index.ts --transport http",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "keywords": [
+    "mcp",
+    "toeic",
+    "speaking",
+    "ai",
+    "evaluation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "open": "^10.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.13.9",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

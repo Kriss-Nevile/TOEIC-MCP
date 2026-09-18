@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TOEIC Speaking Test Simulator</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">🎙️</div>
+      <h1 class="brand-title">TOEIC Speaking Simulator</h1>
+    </div>
+    <div class="exam-meta">
+      <span class="badge badge-official">Official Format</span>
+      <span class="badge badge-part" id="badge-session-id">Session: Loading...</span>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-main">
+
+    <!-- View 1: Audio Setup & Ready Screen -->
+    <section class="card setup-view" id="view-setup">
+      <h2 class="setup-title">Audio & Microphone Setup</h2>
+      <p class="setup-desc">
+        Welcome to the TOEIC Speaking Test simulation. Please check your microphone connection before starting.
+        Once the exam begins, questions will proceed automatically through preparation and recording periods.
+      </p>
+
+      <div class="mic-check-box">
+        <span style="font-size: 0.9rem; color: var(--text-muted);">Microphone Sensitivity</span>
+        <div class="mic-meter-bar">
+          <div class="mic-meter-fill" id="setup-mic-fill"></div>
+        </div>
+        <button class="btn btn-primary" id="btn-request-mic">
+          🎙️ Test & Enable Microphone
+        </button>
+      </div>
+
+      <div id="setup-exam-summary" style="margin-bottom: 2rem; color: var(--text-muted); font-size: 0.95rem;">
+        <!-- Total questions will be injected here -->
+      </div>
+
+      <button class="btn btn-success" id="btn-start-exam" disabled>
+        ▶ Start Test Simulation
+      </button>
+    </section>
+
+    <!-- View 2: Active Exam Screen -->
+    <section class="exam-view" id="view-exam">
+      
+      <div class="exam-nav-header">
+        <div class="question-counter" id="exam-q-counter">Question 1 of 11</div>
+        <div class="question-type-badge" id="exam-q-type">Read a text aloud</div>
+      </div>
+
+      <!-- Timer Card -->
+      <div class="card timer-card mode-prep" id="timer-card">
+        <div class="timer-info-row">
+          <div class="timer-mode-badge" id="timer-status-badge">
+            <div class="status-dot"></div>
+            <span id="timer-phase-text">PREPARATION TIME</span>
+          </div>
+          <div class="timer-countdown" id="timer-display">00:45</div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="timer-progress-bar"></div>
+        </div>
+      </div>
+
+      <!-- Prompt Body Card -->
+      <div class="card prompt-card" id="prompt-card">
+        <div class="prompt-instructions" id="prompt-instructions">
+          Read the text below aloud. You have 45 seconds to prepare, and 45 seconds to read.
+        </div>
+
+        <div class="prompt-passage" id="prompt-passage">
+          Loading question text...
+        </div>
+
+        <div class="prompt-media" id="prompt-media" style="display: none;">
+          <img class="prompt-image" id="prompt-image" src="" alt="TOEIC Speaking Visual Prompt">
+        </div>
+
+        <div class="prompt-context-table" id="prompt-context" style="display: none;">
+          <!-- Schedules/Agendas injected here -->
+        </div>
+      </div>
+
+      <!-- Microphone Live Audio Indicator -->
+      <div class="mic-activity-card">
+        <div class="mic-label">
+          <span>🎤</span>
+          <span id="mic-status-label">Microphone active</span>
+        </div>
+        <div class="mic-wave-container" id="mic-wave-bars">
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- View 3: Review & Submit Screen -->
+    <section class="card review-view" id="view-review">
+      <h2 class="setup-title" style="text-align: center;">Exam Completed!</h2>
+      <p class="setup-desc" style="text-align: center;">
+        You have recorded all speaking questions. You can review and listen back to your voice samples before submitting to the evaluator.
+      </p>
+
+      <div class="review-list" id="review-list">
+        <!-- Recordings review items dynamically injected here -->
+      </div>
+
+      <div style="text-align: center; margin-top: 1.5rem;">
+        <button class="btn btn-success" id="btn-submit-evaluation" style="font-size: 1.1rem; padding: 1rem 2.5rem;">
+          🚀 Submit Recordings to AI Agent
+        </button>
+      </div>
+    </section>
+
+    <!-- View 4: Finish Confirmation Screen -->
+    <section class="card setup-view" id="view-finished" style="display: none;">
+      <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
+      <h2 class="setup-title">Recordings Submitted!</h2>
+      <p class="setup-desc">
+        Your voice samples have been saved to your configured destination folder.
+        Your AI examiner is now ready to evaluate your pronunciation, fluency, grammar, and TOEIC Speaking scaled score.
+      </p>
+      <div style="font-size: 0.9rem; color: var(--text-muted); background: rgba(0,0,0,0.25); padding: 1rem; border-radius: 8px;">
+        You can now return to your conversation with the model.
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    TOEIC® is a registered trademark of Educational Testing Service (ETS). This simulator is for educational practice purposes.
+  </footer>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

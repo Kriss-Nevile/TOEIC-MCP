@@ -95,9 +95,21 @@ async function init() {
       handleAlreadyCompletedSession();
       return;
     }
+
+    const badgeMode = document.getElementById("badge-session-mode");
+    if (badgeMode) {
+      badgeMode.textContent = sessionData.isDrill ? "Targeted Drill" : "Official Format";
+      badgeMode.className = `badge ${sessionData.isDrill ? "badge-drill" : "badge-official"}`;
+    }
+
+    const setupTitle = document.querySelector(".setup-title");
+    if (setupTitle && sessionData.title) {
+      setupTitle.textContent = sessionData.title;
+    }
     
     setupExamSummary.innerHTML = `
-      <strong>${sessionData.questions.length}</strong> speaking questions loaded.<br>
+      <strong>${sessionData.title || (sessionData.isDrill ? "Targeted Practice Drill" : "Full Speaking Test")}</strong><br>
+      Questions: ${sessionData.questions.map(q => `Q${q.questionNumber}`).join(", ")} (${sessionData.questions.length} total)<br>
       Total estimated duration: ~${Math.ceil(sessionData.questions.reduce((acc, q) => acc + q.prepTimeSeconds + q.responseTimeSeconds, 0) / 60)} minutes.
     `;
   } catch (err) {
@@ -246,7 +258,11 @@ function loadCurrentQuestion() {
   }
 
   // Update question counters & headers
-  examQCounter.textContent = `Question ${question.questionNumber} of ${sessionData.questions.length}`;
+  const currentItemNum = currentQuestionIndex + 1;
+  const totalItems = sessionData.questions.length;
+  examQCounter.textContent = sessionData.isDrill
+    ? `Question ${question.questionNumber} (${currentItemNum} of ${totalItems} in drill)`
+    : `Question ${question.questionNumber} of ${totalItems}`;
   const conf = TYPE_CONFIG[question.questionType] || {
     badge: question.questionType,
     instructions: "Respond to the question prompt."
@@ -427,6 +443,16 @@ function finishExam() {
   clearInterval(timerInterval);
   viewExam.style.display = "none";
   viewReview.style.display = "flex";
+
+  const reviewTitle = document.getElementById("review-title");
+  const reviewDesc = document.getElementById("review-desc");
+  if (reviewTitle && sessionData.isDrill) {
+    reviewTitle.textContent = "Drill Completed!";
+  }
+  if (reviewDesc && sessionData.isDrill) {
+    reviewDesc.textContent =
+      "You have recorded all selected drill questions. You can review and listen back to your voice samples before submitting to the evaluator.";
+  }
 
   renderReviewList();
 }

@@ -10,13 +10,20 @@ const sessions = new Map<string, SpeakingSession>();
 
 export function createSession(
   questions: SpeakingQuestion[],
-  overrideAudioDir?: string
+  overrideAudioDir?: string,
+  title?: string
 ): SpeakingSession {
   const id = `spk_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const recordingsDir = resolveSessionRecordingsDir(id, overrideAudioDir);
+  const isDrill = questions.length < 11;
+  const defaultTitle = isDrill
+    ? `Targeted Drill (${questions.length} Question${questions.length > 1 ? "s" : ""})`
+    : "Full Speaking Mock Test (11 Questions)";
 
   const session: SpeakingSession = {
     id,
+    title: title || defaultTitle,
+    isDrill,
     status: "pending",
     questions,
     recordingsDir,

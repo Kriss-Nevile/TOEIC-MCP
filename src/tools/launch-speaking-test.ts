@@ -11,6 +11,14 @@ export const LaunchSpeakingTestInputSchema = z.object({
     .min(1)
     .max(11)
     .describe("Array of TOEIC Speaking questions drafted by the model (1 to 11 questions)."),
+  selected_question_numbers: z
+    .array(z.number().int().min(1).max(11))
+    .optional()
+    .describe("Optional subset of question numbers to test in this session (e.g. [1, 2] for Part 1 read aloud, or [3] for photo description). If provided, only these questions will be presented in the session."),
+  session_title: z
+    .string()
+    .optional()
+    .describe("Optional custom title for the practice session or drill (e.g. 'Part 2 Drill: Describe a Picture', 'Q11 Opinion Practice')."),
   output_directory: z
     .string()
     .optional()
@@ -24,19 +32,41 @@ export const LaunchSpeakingTestInputSchema = z.object({
 
 export type LaunchSpeakingTestInput = z.infer<typeof LaunchSpeakingTestInputSchema>;
 
-export async function handleLaunchSpeakingTest(args: LaunchSpeakingTestInput) {
+export async function handleLaunchSpeakingTest(args: LaunchSpeakingTestInput): Promise<{
+  isError?: boolean;
+  content: { type: "text"; text: string }[];
+}> {
+  // 1. Filter questions if selected_question_numbers is provided
+  let activeQuestions = args.questions;
+  if (args.selected_question_numbers && args.selected_question_numbers.length > 0) {
+    activeQuestions = args.questions.filter((q) =>
+      args.selected_question_numbers!.includes(q.questionNumber)
+    );
+    if (activeQuestions.length === 0) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text" as const,
+            text: `None of the provided questions matched selected_question_numbers: [${args.selected_question_numbers.join(", ")}]. Available question numbers: [${args.questions.map((q) => q.questionNumber).join(", ")}]`,
+          },
+        ],
+      };
+    }
+  }
+
   const config = loadConfig();
 
-  // 1. Ensure the web server is running
+  // 2. Ensure the web server is running
   const { port } = await startWebServer(config.webServerPort);
 
-  // 2. Create the test session in store & prepare audio directory
-  const session = createSession(args.questions, args.output_directory);
+  // 3. Create the test session in store & prepare audio directory
+  const session = createSession(activeQuestions, args.output_directory, args.session_title);
 
-  // 3. Construct local test URL
+  // 4. Construct local test URL
   const testUrl = `http://localhost:${port}/index.html?session=${session.id}`;
 
-  // 4. Optionally launch the browser
+  // 5. Optionally launch the browser
   const shouldOpen = args.auto_open_browser ?? config.autoOpenBrowser ?? true;
   let browserOpened = false;
 
@@ -57,12 +87,16 @@ export async function handleLaunchSpeakingTest(args: LaunchSpeakingTestInput) {
           {
             status: "launched",
             session_id: session.id,
+            session_title: session.title,
+            mode: session.isDrill ? "targeted_drill" : "full_mock_test",
             web_url: testUrl,
             browser_auto_opened: browserOpened,
             audio_destination_folder: session.recordingsDir,
             questions_count: session.questions.length,
-            message:
-              "Local TOEIC Speaking simulator launched. The user is now taking the exam in their browser. Once the user finishes and submits, call the 'get_test_submission' tool with this session_id to retrieve the audio recordings for evaluation.",
+            practiced_questions: session.questions.map((q) => q.questionNumber),
+            message: session.isDrill
+              ? `Targeted speaking drill launched for question(s): ${session.questions.map((q) => `Q${q.questionNumber}`).join(", ")}. Complete recording in the browser, then call 'get_test_submission' with this session_id to evaluate.`
+              : "Full TOEIC Speaking simulator launched. Complete the test in the browser, then call 'get_test_submission' to evaluate.",
           },
           null,
           2

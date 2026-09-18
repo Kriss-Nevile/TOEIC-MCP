@@ -121,6 +121,12 @@ header.app-header {
   color: #7dd3fc;
 }
 
+.badge-drill {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+}
+
 /* Main Container */
 main.app-main {
   flex: 1;

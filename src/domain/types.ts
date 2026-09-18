@@ -38,6 +38,8 @@ export type SessionStatus = "pending" | "in_progress" | "completed" | "abandoned
 
 export interface SpeakingSession {
   id: string;
+  title?: string;
+  isDrill: boolean;
   status: SessionStatus;
   questions: SpeakingQuestion[];
   recordingsDir: string;

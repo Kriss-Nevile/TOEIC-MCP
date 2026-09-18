@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { handleLaunchSpeakingTest } from "../src/tools/launch-speaking-test.js";
@@ -64,3 +64,48 @@ test("handleGetTestSubmission handles non-existent session cleanly", async () =>
   assert.equal(res.isError, true);
   assert.ok(res.content[0].text.includes("Session not found"));
 });
+
+test("handleLaunchSpeakingTest filters by selected_question_numbers for targeted drills", async () => {
+  const res = await handleLaunchSpeakingTest({
+    questions: sampleQuestions,
+    selected_question_numbers: [2],
+    session_title: "Part 2 Photo Drill",
+    auto_open_browser: false,
+  });
+
+  assert.equal(res.content.length, 1);
+  const data = JSON.parse(res.content[0].text);
+
+  assert.equal(data.status, "launched");
+  assert.equal(data.mode, "targeted_drill");
+  assert.deepEqual(data.practiced_questions, [2]);
+  assert.equal(data.questions_count, 1);
+
+  // Verify get_test_submission reflects filtered question count
+  const subRes = await handleGetTestSubmission({
+    session_id: data.session_id,
+  });
+  const subData = JSON.parse(subRes.content[0].text);
+  assert.equal(subData.total_questions, 1);
+
+  // Clean up
+  fs.rmSync(data.audio_destination_folder, { recursive: true, force: true });
+  await stopWebServer();
+});
+
+test("handleLaunchSpeakingTest rejects selected_question_numbers not present in questions", async () => {
+  const res = await handleLaunchSpeakingTest({
+    questions: sampleQuestions,
+    selected_question_numbers: [5], // Not in sampleQuestions (1, 2)
+    auto_open_browser: false,
+  });
+
+  assert.equal(res.isError, true);
+  assert.ok(res.content[0].text.includes("None of the provided questions"));
+});
+
+after(async () => {
+  await stopWebServer();
+});
+
+

@@ -46,7 +46,7 @@ An official **Model Context Protocol (MCP)** server providing tools and skills f
 ## 📋 Available MCP Capabilities
 
 ### Tools
-- `launch_speaking_test`: Launches a local browser app simulating a TOEIC Speaking test with questions drafted by the model. Voice recordings are saved to the configured destination folder.
+- `launch_speaking_test`: Launches a local browser app simulating a TOEIC Speaking exam or targeted practice drill (with optional `selected_question_numbers` and `session_title`). Voice recordings are saved to the configured destination folder.
 - `get_test_submission`: Retrieves the recorded audio samples and submission status from the configured directory once the candidate submits.
 - `start_test_session`: Initiate a full mock or modular practice session.
 - `get_next_question`: Retrieve questions without answer keys.

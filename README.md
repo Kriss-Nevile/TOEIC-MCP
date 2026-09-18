@@ -26,19 +26,19 @@ Authentic TOEIC Speaking preparation requires spoken responses delivered under r
 
 ### Tools
 
-| Tool | Parameters | Description |
-| :--- | :--- | :--- |
-| `launch_speaking_test` | `questions` (SpeakingQuestion[])<br>`selected_question_numbers?` (number[])<br>`session_title?` (string)<br>`output_directory?` (string)<br>`auto_open_browser?` (boolean) | Initializes an examination session and opens the local browser simulator. Accepts an array of question definitions, with optional filtering for targeted drills (e.g. practicing only Question 3 or Questions 1–2). Returns session metadata and local interface URL. |
-| `get_test_submission` | `session_id` (string)<br>`destination_folder?` (string) | Inspects the storage location for a given session and returns submission status, audio file paths, recorded durations, and question metadata for model evaluation. |
+| Tool | Description |
+| :--- | :--- |
+| `launch_speaking_test` | Initializes an examination session and opens the local browser simulator. Supports complete mock exams or targeted skill drills with selective question sets. Returns session metadata and local interface URL. |
+| `get_test_submission` | Inspects the session storage directory and returns submission status, candidate audio file paths, recorded durations, and question metadata for model evaluation. |
 
 ### Prompts
 
-| Prompt | Arguments | Description |
-| :--- | :--- | :--- |
-| `evaluate_speaking_test` | `session_id`, `candidate_audio_paths`, `overall_observations?`, `custom_rubric_notes?` | Generates an evaluation prompt structuring candidate analysis against official ETS scoring rubrics across all speaking item types. |
-| `evaluate_question` | `question_payload`, `candidate_response`, `part_number?` | Generates a diagnostic prompt for distractor analysis, trap categorization (phonetic confusion, non-sequiturs, morphological traps, scope errors), and remediation. |
-| `diagnose_weaknesses` | `session_summary`, `error_breakdown`, `target_score?` | Synthesizes performance data into a section-by-section vulnerability matrix with a structured study roadmap. |
-| `generate_targeted_lesson` | `weakness_topic`, `target_part?`, `proficiency_level?` | Produces an educational mini-lesson with underlying rules, common pitfalls, and custom practice drills. |
+| Prompt | Description |
+| :--- | :--- |
+| `evaluate_speaking_test` | Rubric-grounded evaluation template guiding the model to assess candidate recordings against official ETS scoring criteria across speaking item types. |
+| `evaluate_question` | Distractor analysis template directing the model to analyze question choices, categorize trap types (phonetic confusion, non-sequiturs, morphological traps, scope errors), and outline remediation takeaways. |
+| `diagnose_weaknesses` | Diagnostic framework guiding the model to synthesize candidate error patterns into a section-by-section vulnerability matrix and a structured study roadmap. |
+| `generate_targeted_lesson` | Remediation template instructing the model to construct a focused lesson, analyze common pitfalls, and prepare customized practice drills. |
 
 ---
 

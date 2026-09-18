@@ -272,8 +272,11 @@ function updateTimerDisplay() {
 }
 
 // Media Recording
+let recordingStartTime = 0;
+
 function startRecording(question) {
   recordedChunks = [];
+  recordingStartTime = Date.now();
   try {
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
       ? "audio/webm;codecs=opus"
@@ -299,19 +302,31 @@ function stopRecordingAndNext(question) {
   if (mediaRecorder && mediaRecorder.state !== "inactive") {
     mediaRecorder.onstop = async () => {
       const mimeType = mediaRecorder.mimeType || "audio/webm";
-      const blob = new Blob(recordedChunks, { type: mimeType });
-      const durationSeconds = question.responseTimeSeconds;
-      const audioUrl = URL.createObjectURL(blob);
+      const rawBlob = new Blob(recordedChunks, { type: mimeType });
+      const elapsedMs = Math.max(1000, Date.now() - recordingStartTime);
+      const durationSeconds = Math.round(elapsedMs / 1000);
+
+      // Fix WebM seeking bug by injecting duration header into EBML container
+      let finalBlob = rawBlob;
+      if (typeof window.ysFixWebmDuration === "function") {
+        try {
+          finalBlob = await window.ysFixWebmDuration(rawBlob, elapsedMs);
+        } catch (err) {
+          console.warn("Could not patch WebM duration:", err);
+        }
+      }
+
+      const audioUrl = URL.createObjectURL(finalBlob);
 
       questionBlobs[question.questionNumber] = {
-        blob,
+        blob: finalBlob,
         url: audioUrl,
         duration: durationSeconds,
         question
       };
 
       // Upload recording immediately in background
-      await uploadQuestionAudio(question.questionNumber, blob, durationSeconds);
+      await uploadQuestionAudio(question.questionNumber, finalBlob, durationSeconds);
 
       // Move to next question
       currentQuestionIndex++;
@@ -353,32 +368,103 @@ function finishExam() {
   renderReviewList();
 }
 
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function renderReviewList() {
   reviewList.innerHTML = "";
 
   sessionData.questions.forEach((q) => {
-    const item = document.createElement("div");
-    item.className = "review-item";
+    const card = document.createElement("div");
+    card.className = "review-card";
+    card.id = `review-card-${q.questionNumber}`;
 
     const saved = questionBlobs[q.questionNumber];
     const url = saved ? saved.url : null;
+    const durationSec = saved ? saved.duration : q.responseTimeSeconds;
 
-    item.innerHTML = `
-      <div>
-        <strong>Question ${q.questionNumber}</strong>
-        <span style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem;">
-          (${q.questionType})
-        </span>
-        <div style="font-size: 0.9rem; color: #cbd5e1; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-          ${q.promptText}
+    const conf = TYPE_CONFIG[q.questionType] || {
+      badge: q.questionType,
+      instructions: "Respond to the question prompt."
+    };
+
+    const promptText = q.promptText || "";
+    const isLongPrompt = promptText.length > 85 || Boolean(q.contextData) || Boolean(q.imageUrl);
+    const previewText = isLongPrompt && promptText.length > 85 
+      ? promptText.substring(0, 85) + "..." 
+      : promptText;
+
+    card.innerHTML = `
+      <div class="review-card-top">
+        <div class="review-card-title">
+          <span class="review-q-num">Question ${q.questionNumber}</span>
+          <span class="badge badge-part">${conf.badge}</span>
+        </div>
+        <div class="review-card-meta">
+          <span class="review-duration-tag">⏱️ ${durationSec}s recorded</span>
         </div>
       </div>
-      <div>
-        ${url ? `<audio class="audio-preview" controls src="${url}"></audio>` : `<span style="color: #ef4444;">Missing recording</span>`}
+
+      <div class="review-prompt-box">
+        <div class="review-prompt-preview" id="prompt-prev-${q.questionNumber}">
+          ${escapeHtml(previewText)}
+        </div>
+
+        ${isLongPrompt ? `
+          <div class="review-prompt-full" id="prompt-full-${q.questionNumber}">
+            <div class="review-full-text">${escapeHtml(promptText)}</div>
+            ${q.contextData ? `<div class="review-context-block">${escapeHtml(q.contextData)}</div>` : ""}
+            ${q.imageUrl ? `<div class="review-image-block"><img src="${escapeHtml(q.imageUrl)}" alt="Question Visual" /></div>` : ""}
+          </div>
+          <button type="button" class="review-expand-btn" data-q="${q.questionNumber}">
+            <span class="expand-icon">▼</span>
+            <span class="expand-text">Show full question</span>
+          </button>
+        ` : ""}
+      </div>
+
+      <div class="review-playback-box">
+        <div class="playback-label">
+          <span>🎙️</span>
+          <span>Playback Voice Recording:</span>
+        </div>
+        ${url 
+          ? `<audio class="review-audio-player" controls preload="metadata" src="${url}"></audio>` 
+          : `<span class="review-missing">No voice recording captured</span>`
+        }
       </div>
     `;
 
-    reviewList.appendChild(item);
+    // Connect expand/collapse button
+    if (isLongPrompt) {
+      const expandBtn = card.querySelector(`.review-expand-btn`);
+      const fullBox = card.querySelector(`#prompt-full-${q.questionNumber}`);
+      const prevBox = card.querySelector(`#prompt-prev-${q.questionNumber}`);
+      const icon = expandBtn.querySelector(".expand-icon");
+      const label = expandBtn.querySelector(".expand-text");
+
+      expandBtn.addEventListener("click", () => {
+        const isExpanded = fullBox.classList.toggle("expanded");
+        if (isExpanded) {
+          prevBox.style.display = "none";
+          icon.textContent = "▲";
+          label.textContent = "Collapse question";
+        } else {
+          prevBox.style.display = "block";
+          icon.textContent = "▼";
+          label.textContent = "Show full question";
+        }
+      });
+    }
+
+    reviewList.appendChild(card);
   });
 }
 

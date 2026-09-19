@@ -5,7 +5,12 @@ import fs from "node:fs";
 import http from "node:http";
 import multer from "multer";
 import { fileURLToPath } from "node:url";
-import { getSession, recordSubmission, updateSessionStatus } from "../domain/session-store.js";
+import {
+  getSession,
+  recordSubmission,
+  recordWritingSubmission,
+  updateSessionStatus,
+} from "../domain/session-store.js";
 import { loadConfig } from "../config/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -84,7 +89,23 @@ export function createExpressApp(): express.Express {
     res.sendFile(filePath);
   });
 
-  // Upload question recording
+  // Serve written response text files
+  app.get("/api/sessions/:id/writing/:filename", (req, res) => {
+    const sessionId = String(req.params.id);
+    const session = getSession(sessionId);
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+    const filename = path.basename(String(req.params.filename));
+    const filePath = path.join(session.recordingsDir, filename);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "Writing response file not found" });
+    }
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.sendFile(filePath);
+  });
+
+  // Upload question recording (Speaking)
   app.post(
     "/api/sessions/:id/recordings",
     upload.single("audio"),
@@ -112,7 +133,7 @@ export function createExpressApp(): express.Express {
 
       const submission = {
         questionNumber,
-        questionType: question?.questionType || "read_aloud",
+        questionType: (question as any)?.questionType || "read_aloud",
         promptText: question?.promptText || "",
         audioFileName: file.filename,
         audioFilePath: file.path,
@@ -130,6 +151,49 @@ export function createExpressApp(): express.Express {
     }
   );
 
+  // Submit written response (Writing)
+  app.post("/api/sessions/:id/writing", (req, res) => {
+    const sessionId = String(req.params.id);
+    const session = getSession(sessionId);
+
+    if (!session) {
+      return res.status(404).json({ error: "Session not found" });
+    }
+
+    if (session.status === "completed") {
+      return res.status(403).json({ error: "Session has already been submitted and is locked." });
+    }
+
+    const questionNumber = Number(req.body.questionNumber);
+    const writtenText = typeof req.body.writtenText === "string" ? req.body.writtenText : "";
+    const durationSeconds = Number(req.body.durationSeconds) || 0;
+    const question = session.questions.find((q) => q.questionNumber === questionNumber);
+
+    const words = writtenText.trim() ? writtenText.trim().split(/\s+/).length : 0;
+    const textFileName = `q${questionNumber}.txt`;
+    const textFilePath = path.join(session.recordingsDir, textFileName);
+
+    const submission = {
+      questionNumber,
+      questionType: (question as any)?.questionType || "write_sentence",
+      promptText: question?.promptText || "",
+      writtenText,
+      wordCount: words,
+      textFileName,
+      textFilePath,
+      fileSizeBytes: Buffer.byteLength(writtenText, "utf-8"),
+      durationSeconds,
+      uploadedAt: new Date().toISOString(),
+    };
+
+    recordWritingSubmission(sessionId, submission);
+
+    res.status(200).json({
+      success: true,
+      submission,
+    });
+  });
+
   // Submit test session for final evaluation
   app.post("/api/sessions/:id/submit", (req, res) => {
     const sessionId = String(req.params.id);
@@ -138,6 +202,7 @@ export function createExpressApp(): express.Express {
     if (!session) {
       return res.status(404).json({ error: "Session not found" });
     }
+
 
     res.status(200).json({
       success: true,

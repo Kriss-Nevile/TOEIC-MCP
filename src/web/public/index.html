@@ -11,8 +11,8 @@
   <!-- Header -->
   <header class="app-header">
     <div class="brand">
-      <div class="brand-icon">🎙️</div>
-      <h1 class="brand-title">TOEIC Speaking Simulator</h1>
+      <div class="brand-icon" id="brand-icon">🎙️</div>
+      <h1 class="brand-title" id="brand-title">TOEIC Speaking Simulator</h1>
     </div>
     <div class="exam-meta">
       <span class="badge badge-official" id="badge-session-mode">Official Format</span>
@@ -25,13 +25,14 @@
 
     <!-- View 1: Audio Setup & Ready Screen -->
     <section class="card setup-view" id="view-setup">
-      <h2 class="setup-title">Audio & Microphone Setup</h2>
-      <p class="setup-desc">
+      <h2 class="setup-title" id="setup-title">Audio & Microphone Setup</h2>
+      <p class="setup-desc" id="setup-desc">
         Welcome to the TOEIC Speaking Test simulation. Please check your microphone connection before starting.
         Once the exam begins, questions will proceed automatically through preparation and recording periods.
       </p>
 
-      <div class="mic-check-box">
+      <!-- Speaking Mic Check -->
+      <div class="mic-check-box" id="setup-mic-box">
         <span style="font-size: 0.9rem; color: var(--text-muted);">Microphone Sensitivity</span>
         <div class="mic-meter-bar">
           <div class="mic-meter-fill" id="setup-mic-fill"></div>
@@ -39,6 +40,31 @@
         <button class="btn btn-primary" id="btn-request-mic">
           Test & Enable Microphone
         </button>
+      </div>
+
+      <!-- Writing Guidelines Box -->
+      <div class="writing-guidelines-box" id="setup-writing-box" style="display: none;">
+        <div class="guideline-item">
+          <span class="guideline-icon">⌨️</span>
+          <div>
+            <strong>Standard Keyboard Input</strong>
+            <p>Type your responses directly into the editor for each question. Spellcheck and autocorrect are disabled during simulation to mirror official ETS conditions.</p>
+          </div>
+        </div>
+        <div class="guideline-item">
+          <span class="guideline-icon">⏱️</span>
+          <div>
+            <strong>Timed Question Progression</strong>
+            <p>Each question has its designated time limit. When you finish answering, click <em>Next Question</em> or allow the timer to expire.</p>
+          </div>
+        </div>
+        <div class="guideline-item">
+          <span class="guideline-icon">📝</span>
+          <div>
+            <strong>Word Count & Prompts</strong>
+            <p>Live word and character counters will guide you. For Question 8 (Opinion Essay), aim for at least 300 words with structured paragraphs.</p>
+          </div>
+        </div>
       </div>
 
       <div id="setup-exam-summary" style="margin-bottom: 2rem; color: var(--text-muted); font-size: 0.95rem;">
@@ -91,8 +117,8 @@
         </div>
       </div>
 
-      <!-- Microphone Live Audio Indicator -->
-      <div class="mic-activity-card">
+      <!-- Microphone Live Audio Indicator (Speaking) -->
+      <div class="mic-activity-card" id="mic-activity-card">
         <div class="mic-label">
           <span id="mic-status-label">Microphone active</span>
         </div>
@@ -108,6 +134,33 @@
         </div>
       </div>
 
+      <!-- Writing Input Area (Writing) -->
+      <div class="card writing-input-card" id="writing-input-card" style="display: none;">
+        <div class="writing-toolbar">
+          <span class="writing-label">Your Response:</span>
+          <div class="writing-stats" id="writing-stats">
+            <span class="badge" id="writing-word-count">0 words</span>
+            <span class="badge" id="writing-char-count">0 chars</span>
+            <span class="badge badge-target" id="writing-target-count" style="display: none;">Target: 300+ words</span>
+          </div>
+        </div>
+        <textarea
+          id="writing-textarea"
+          class="writing-textarea"
+          placeholder="Type your response here..."
+          spellcheck="false"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+        ></textarea>
+        <div class="writing-actions-row">
+          <span class="writing-tip-text" id="writing-tip-text">Click "Next Question" when you are finished typing.</span>
+          <button type="button" class="btn btn-primary" id="btn-next-question">
+            Next Question →
+          </button>
+        </div>
+      </div>
+
     </section>
 
     <!-- View 3: Review & Submit Screen -->
@@ -118,7 +171,7 @@
       </p>
 
       <div class="review-list" id="review-list">
-        <!-- Recordings review items dynamically injected here -->
+        <!-- Review items dynamically injected here -->
       </div>
 
       <div style="text-align: center; margin-top: 1.5rem; display: flex; justify-content: center; gap: 1rem; align-items: center; flex-wrap: wrap;">
@@ -145,6 +198,7 @@
         Listen to Saved Audio
       </button>
     </section>
+
 
   </main>
 

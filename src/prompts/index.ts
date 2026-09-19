@@ -4,6 +4,10 @@ import {
   buildEvaluateSpeakingPrompt,
 } from "./evaluate-speaking.js";
 import {
+  EvaluateWritingPromptArgsSchema,
+  buildEvaluateWritingPrompt,
+} from "./evaluate-writing.js";
+import {
   EvaluateQuestionPromptArgsSchema,
   buildEvaluateQuestionPrompt,
 } from "./evaluate-question.js";
@@ -24,6 +28,16 @@ export function registerPrompts(server: McpServer): void {
     EvaluateSpeakingPromptArgsSchema,
     async (args) => {
       return buildEvaluateSpeakingPrompt(args as any);
+    }
+  );
+
+  // Prompt 2: evaluate_writing_test
+  server.prompt(
+    "evaluate_writing_test",
+    "Generates an expert evaluation prompt for assessing candidate written responses against official ETS TOEIC Writing rubrics.",
+    EvaluateWritingPromptArgsSchema,
+    async (args) => {
+      return buildEvaluateWritingPrompt(args as any);
     }
   );
 

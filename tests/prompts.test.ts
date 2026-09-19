@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildEvaluateSpeakingPrompt } from "../src/prompts/evaluate-speaking.js";
+import { buildEvaluateWritingPrompt } from "../src/prompts/evaluate-writing.js";
 import { buildEvaluateQuestionPrompt } from "../src/prompts/evaluate-question.js";
 import { buildDiagnoseWeaknessesPrompt } from "../src/prompts/diagnose-weaknesses.js";
 import { buildGenerateTargetedLessonPrompt } from "../src/prompts/generate-targeted-lesson.js";
@@ -17,6 +18,24 @@ test("buildEvaluateSpeakingPrompt returns valid user message with rubric", () =>
   assert.ok(prompt.messages[0].content.text.includes("Level 7"));
   assert.ok(prompt.messages[0].content.text.includes("Questions 1–2: Read a Text Aloud"));
 });
+
+test("buildEvaluateWritingPrompt returns valid user message with ETS writing rubric", () => {
+  const prompt = buildEvaluateWritingPrompt({
+    session_id: "wrt_123_xyz",
+    candidate_target_level: "Level 8 (170-190)",
+  });
+
+  assert.equal(prompt.messages.length, 1);
+  assert.equal(prompt.messages[0].role, "user");
+  const text = prompt.messages[0].content.text;
+  assert.ok(text.includes("wrt_123_xyz"));
+  assert.ok(text.includes("Level 8"));
+  assert.ok(text.includes("Questions 1–5: Write a Sentence Based on a Picture"));
+  assert.ok(text.includes("Questions 6–7: Respond to a Written Request"));
+  assert.ok(text.includes("Question 8: Write an Opinion Essay"));
+  assert.ok(text.includes("0 to 200 points"));
+});
+
 
 test("buildEvaluateQuestionPrompt returns valid distractor analysis instructions", () => {
   const prompt = buildEvaluateQuestionPrompt({

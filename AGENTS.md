@@ -71,29 +71,26 @@ Every tool, prompt, and question generator must conform strictly to the official
   - *Single Passages* (29 questions / ~10 passages)
   - *Multiple Passages* (25 questions / 2 double sets, 3 triple sets): Cross-referencing information between emails, invoices, schedules, and reviews.
 
+### 3.3. Writing Test (8 Questions, ~60 Minutes, 0–200 Scaled Score, Levels 1–9)
+- **Questions 1–5: Write a Sentence Based on a Picture** (1 image + 2 given words/phrases per question, ~8 minutes total): Evaluates grammatical correctness, accurate keyword usage in context, and factual relevance to the image (Scored 0–3 each).
+- **Questions 6–7: Respond to a Written Request** (incoming business email/memo with 2–3 required tasks, 10 minutes per question): Evaluates task completion, organization, paragraph structure, business vocabulary, and syntactic variety (Scored 0–4 each).
+- **Question 8: Write an Opinion Essay** (opinion prompt on an issue, 30 minutes, 300+ words recommended): Evaluates clear thesis statement, reasoned elaboration with concrete examples, cohesive discourse markers, and grammatical precision (Scored 0–5).
+
 ---
 
 ## 4. MCP Tools Specification
 
-The server must expose tools categorized into **Simulation**, **Interactive Training**, and **Progress Tracking**:
+The server exposes tools categorized into **Oral & Written Exam Simulation**, **Interactive Training**, and **Progress Tracking**:
 
 ### 4.1. Simulation & Test Engine Tools
 | Tool Name | Parameters | Description |
 | :--- | :--- | :--- |
-| `start_test_session` | `mode: "full" \| "listening" \| "reading" \| "part"`, `target_part?: 1-7`, `time_limit_minutes?: number`, `question_count?: number` | Initializes an exam session, starts timer, returns `session_id` and initial session state. |
-| `get_next_question` | `session_id: string`, `question_index?: number` | Fetches question details (item stem, choices, passage text, transcript reference, graphic URL if applicable). Hides correct answer and explanations. |
-| `submit_answer` | `session_id: string`, `question_id: string`, `selected_option: "A" \| "B" \| "C" \| "D"`, `time_spent_seconds?: number` | Records user's response in the active session. Optionally returns immediate feedback in practice mode. |
-| `finish_test_session` | `session_id: string` | Concludes the test session, calculates raw scores for Listening and Reading, maps to official ETS 5–495 score bands, and outputs a complete scorecard. |
-| `get_session_status` | `session_id: string` | Returns current progress (questions answered, flagged, remaining time, active mode). |
-
-### 4.2. Training & Practice Tools
-| Tool Name | Parameters | Description |
-| :--- | :--- | :--- |
-| `generate_drill` | `part: 1-7`, `topic?: string`, `difficulty: "easy" \| "medium" \| "hard"`, `count: number` | Generates or fetches targeted drill questions focusing on specific grammatical structures or business domains. |
-| `search_question_bank` | `query: string`, `category?: string`, `part?: 1-7`, `limit?: number` | Searches the internal question bank by keywords, grammar rules (e.g., "subjunctive", "inversion"), or business contexts. |
-| `get_audio_transcript` | `question_id: string` | Returns full audio transcripts for Listening section items with highlighted keyword anchors. |
+| `launch_speaking_test` | `questions: SpeakingQuestion[]`, `selected_question_numbers?: number[]`, `session_title?: string`, `output_directory?: string`, `auto_open_browser?: boolean` | Initializes an oral examination session, starts web server, launches browser simulator, and records PCM WAV audio files. |
+| `launch_writing_test` | `questions: WritingQuestion[]`, `selected_question_numbers?: number[]`, `session_title?: string`, `output_directory?: string`, `auto_open_browser?: boolean` | Initializes a written examination session, starts web server, launches distraction-free writing environment with real-time word counting, and saves `.txt` responses. |
+| `get_test_submission` | `session_id: string`, `destination_folder?: string` | Inspects session folder and returns submission status, recorded audio paths (speaking) or written texts and word counts (writing) for model evaluation. |
 
 ---
+
 
 ## 5. Skills & Evaluation Mechanics
 
@@ -114,10 +111,13 @@ Every evaluated question must be assessed across four dimensions:
 4. **Actionable Remediation**: A concise takeaway rule explaining why the correct choice is required and how to spot the trap in future tests.
 
 ### 5.2. MCP Prompts & Prompt Templates
-The server should expose the following pre-configured MCP prompts:
+The server exposes the following pre-configured MCP prompts:
+- `evaluate_speaking_test`: Accepts a completed speaking session ID, guiding the model through official ETS Speaking rubrics (Questions 1–11) to estimate scaled scores (0–200, Levels 1–8).
+- `evaluate_writing_test`: Accepts a completed writing session ID, guiding the model through official ETS Writing rubrics (Questions 1–8: sentence accuracy, request fulfillment, essay thesis & development) to estimate scaled scores (0–200, Levels 1–9).
 - `evaluate_question`: Accepts a question payload and candidate answer, prompting the model to perform distractor analysis and output structured educational feedback.
-- `diagnose_weaknesses`: Accepts a completed session summary and outputs a diagnostic breakdown by Part (1–7) and error types (grammar vs. vocabulary vs. speed).
+- `diagnose_weaknesses`: Accepts a completed session summary and outputs a diagnostic breakdown by Part and error types.
 - `generate_targeted_lesson`: Produces a focused mini-lesson and customized exercise set based on the learner's most frequent error patterns.
+
 
 ### 5.3. Score Conversion & ETS Band Mapping
 The scoring engine must implement a calibrated TOEIC conversion table:

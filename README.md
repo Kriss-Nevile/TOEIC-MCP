@@ -5,7 +5,7 @@
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io)
 [![Node Version](https://img.shields.io/badge/Node.js-20%2B-brightgreen.svg)](https://nodejs.org)
 
-An open-source Model Context Protocol (MCP) server that enables AI agents to administer interactive TOEIC Speaking examinations, execute targeted drills, manage local audio response recordings, and perform rubric-based evaluations.
+An open-source Model Context Protocol (MCP) server that enables AI agents to administer interactive TOEIC Speaking & Writing examinations, execute targeted drills, manage audio recordings and written response submissions, and perform rubric-based evaluations.
 
 The server supports standard input/output (`stdio`) for local agent environments (such as Antigravity Agent, Codex, and CLI runners) as well as HTTP with Server-Sent Events (`SSE`) for remote or multi-agent deployments.
 
@@ -13,12 +13,12 @@ The server supports standard input/output (`stdio`) for local agent environments
 
 ## Overview
 
-Authentic TOEIC Speaking preparation requires spoken responses delivered under realistic exam time constraints. This server provides the infrastructure for AI models to orchestrate oral examinations:
+Authentic TOEIC Speaking & Writing preparation requires responses delivered under realistic exam time constraints. This server provides the infrastructure for AI models to orchestrate oral and written examinations:
 
-- **Session Orchestration**: Models generate or select speaking questions and launch dedicated testing sessions. Sessions can encompass the complete 11-question exam or focus on specific question types through targeted drills.
-- **Candidate Interface**: Candidates complete assessments in a dedicated local web interface featuring microphone verification, timed preparation and response intervals, and response review capabilities.
-- **Lossless Audio Management**: Spoken responses are recorded in studio-grade uncompressed 16-bit linear PCM WAV format (48 kHz mono) and saved directly to the host filesystem, providing the highest possible acoustic fidelity for pronunciation analysis and native desktop playback.
-- **Evaluation Infrastructure**: Pre-configured evaluation prompts guide models in assessing candidate recordings against official ETS criteria (pronunciation, intonation, grammatical accuracy, vocabulary breadth, and topic development) to project scaled scores (0–200, Levels 1–8).
+- **Session Orchestration**: Models generate or select speaking or writing questions and launch dedicated testing sessions. Sessions can encompass the complete exam (11 Speaking questions or 8 Writing questions) or focus on specific question types through targeted drills.
+- **Candidate Interface**: Candidates complete assessments in a dedicated local web interface featuring microphone verification for speaking, distraction-free text editing with live word/character counters for writing, timed preparation and response intervals, and response review capabilities.
+- **Lossless Audio & Text Management**: Spoken responses are recorded in studio-grade uncompressed 16-bit linear PCM WAV format (48 kHz mono), and written responses are captured and saved as individual text files and structured JSON metadata directly to the host filesystem.
+- **Evaluation Infrastructure**: Pre-configured evaluation prompts guide models in assessing candidate recordings and essays against official ETS criteria (Speaking: 0–200, Levels 1–8; Writing: 0–200, Levels 1–9).
 
 ---
 
@@ -28,17 +28,20 @@ Authentic TOEIC Speaking preparation requires spoken responses delivered under r
 
 | Tool | Description |
 | :--- | :--- |
-| `launch_speaking_test` | Initializes an examination session and opens the local browser simulator. Supports complete mock exams or targeted skill drills with selective question sets. Returns session metadata and local interface URL. |
-| `get_test_submission` | Inspects the session storage directory and returns submission status, candidate audio file paths, recorded durations, and question metadata for model evaluation. |
+| `launch_speaking_test` | Initializes a speaking examination session and opens the local browser simulator. Supports complete mock exams (Q1–11) or targeted skill drills. Returns session metadata and local interface URL. |
+| `launch_writing_test` | Initializes a writing examination session and opens the local browser simulator. Supports complete mock exams (Q1–8) or targeted skill drills (picture sentence writing, email response, opinion essay). Returns session metadata and local interface URL. |
+| `get_test_submission` | Inspects the session storage directory and returns submission status, candidate audio file paths or written text responses, word counts, and question metadata for model evaluation. |
 
 ### Prompts
 
 | Prompt | Description |
 | :--- | :--- |
-| `evaluate_speaking_test` | Rubric-grounded evaluation template guiding the model to assess candidate recordings against official ETS scoring criteria across speaking item types. |
+| `evaluate_speaking_test` | Rubric-grounded evaluation template guiding the model to assess candidate recordings against official ETS scoring criteria across speaking item types (0–200 scaled score, Levels 1–8). |
+| `evaluate_writing_test` | Rubric-grounded evaluation template guiding the model to assess candidate written responses against official ETS scoring criteria across writing item types (0–200 scaled score, Levels 1–9). |
 | `evaluate_question` | Distractor analysis template directing the model to analyze question choices, categorize trap types (phonetic confusion, non-sequiturs, morphological traps, scope errors), and outline remediation takeaways. |
 | `diagnose_weaknesses` | Diagnostic framework guiding the model to synthesize candidate error patterns into a section-by-section vulnerability matrix and a structured study roadmap. |
 | `generate_targeted_lesson` | Remediation template instructing the model to construct a focused lesson, analyze common pitfalls, and prepare customized practice drills. |
+
 
 ---
 

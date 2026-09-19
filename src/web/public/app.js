@@ -217,8 +217,8 @@ function handleAlreadyCompletedSession() {
   }
 
   if (finishedDesc) {
-    const completedDate = sessionData.completedAt 
-      ? new Date(sessionData.completedAt).toLocaleString() 
+    const completedDate = sessionData.completedAt
+      ? new Date(sessionData.completedAt).toLocaleString()
       : "earlier";
     finishedDesc.innerHTML = `
       This test session was completed on <strong>${completedDate}</strong>.<br>
@@ -229,8 +229,8 @@ function handleAlreadyCompletedSession() {
 
   if (finishedMeta) {
     finishedMeta.textContent = isWritingTest
-      ? "Return to your chat and ask your AI agent to retrieve your written submissions and generate your rubric evaluation."
-      : "Return to your chat and ask your AI agent to retrieve the recordings and generate your evaluation.";
+      ? "Return to your chat and ask your AI agent to generate your rubric evaluation."
+      : "Return to your chat and ask your AI agent to generate your evaluation.";
   }
 
   if (btnViewSubmitted) {
@@ -730,8 +730,8 @@ function renderReviewList() {
 
     const promptText = q.promptText || "";
     const isLongPrompt = promptText.length > 85 || Boolean(q.contextData) || Boolean(q.imageUrl);
-    const previewText = isLongPrompt && promptText.length > 85 
-      ? promptText.substring(0, 85) + "..." 
+    const previewText = isLongPrompt && promptText.length > 85
+      ? promptText.substring(0, 85) + "..."
       : promptText;
 
     if (isWritingTest) {
@@ -840,10 +840,10 @@ function renderReviewList() {
           <div class="playback-label">
             <span>Voice Recording:</span>
           </div>
-          ${url 
-            ? `<audio class="review-audio-player" controls preload="metadata" src="${url}"></audio>` 
-            : `<span class="review-missing">No voice recording captured</span>`
-          }
+          ${url
+          ? `<audio class="review-audio-player" controls preload="metadata" src="${url}"></audio>`
+          : `<span class="review-missing">No voice recording captured</span>`
+        }
           ${!isCompleted && cheatModeActive ? `
             <div class="review-card-actions">
               <button type="button" class="btn-rerecord" id="btn-rerecord-${q.questionNumber}" data-q="${q.questionNumber}">

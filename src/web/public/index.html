@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TOEIC Speaking Test Simulator</title>
   <link rel="stylesheet" href="app.css">
 </head>
+
 <body>
 
   <!-- Header -->
@@ -48,21 +50,24 @@
           <span class="guideline-icon">⌨️</span>
           <div>
             <strong>Standard Keyboard Input</strong>
-            <p>Type your responses directly into the editor for each question. Spellcheck and autocorrect are disabled during simulation to mirror official ETS conditions.</p>
+            <p>Type your responses directly into the editor for each question. Spellcheck and autocorrect are disabled
+              during simulation to mirror official ETS conditions.</p>
           </div>
         </div>
         <div class="guideline-item">
           <span class="guideline-icon">⏱️</span>
           <div>
             <strong>Timed Question Progression</strong>
-            <p>Each question has its designated time limit. When you finish answering, click <em>Next Question</em> or allow the timer to expire.</p>
+            <p>Each question has its designated time limit. When you finish answering, click <em>Next Question</em> or
+              allow the timer to expire.</p>
           </div>
         </div>
         <div class="guideline-item">
           <span class="guideline-icon">📝</span>
           <div>
             <strong>Word Count & Prompts</strong>
-            <p>Live word and character counters will guide you. For Question 8 (Opinion Essay), aim for at least 300 words with structured paragraphs.</p>
+            <p>Live word and character counters will guide you. For Question 8 (Opinion Essay), aim for at least 300
+              words with structured paragraphs.</p>
           </div>
         </div>
       </div>
@@ -78,7 +83,7 @@
 
     <!-- View 2: Active Exam Screen -->
     <section class="exam-view" id="view-exam">
-      
+
       <div class="exam-nav-header">
         <div class="question-counter" id="exam-q-counter">Question 1 of 11</div>
         <div class="question-type-badge" id="exam-q-type">Read a text aloud</div>
@@ -144,17 +149,11 @@
             <span class="badge badge-target" id="writing-target-count" style="display: none;">Target: 300+ words</span>
           </div>
         </div>
-        <textarea
-          id="writing-textarea"
-          class="writing-textarea"
-          placeholder="Type your response here..."
-          spellcheck="false"
-          autocomplete="off"
-          autocorrect="off"
-          autocapitalize="off"
-        ></textarea>
+        <textarea id="writing-textarea" class="writing-textarea" placeholder="Type your response here..."
+          spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
         <div class="writing-actions-row">
-          <span class="writing-tip-text" id="writing-tip-text">Click "Next Question" when you are finished typing.</span>
+          <span class="writing-tip-text" id="writing-tip-text">Click "Next Question" when you are finished
+            typing.</span>
           <button type="button" class="btn btn-primary" id="btn-next-question">
             Next Question →
           </button>
@@ -167,15 +166,18 @@
     <section class="card review-view" id="view-review">
       <h2 class="setup-title" id="review-title" style="text-align: center;">Review Your Recordings</h2>
       <p class="setup-desc" id="review-desc" style="text-align: center;">
-        Listen back to your recorded answers in memory. When ready, click below to save everything to your storage folder.
+        Listen back to your recorded answers in memory. When ready, click below to save everything to your storage
+        folder.
       </p>
 
       <div class="review-list" id="review-list">
         <!-- Review items dynamically injected here -->
       </div>
 
-      <div style="text-align: center; margin-top: 1.5rem; display: flex; justify-content: center; gap: 1rem; align-items: center; flex-wrap: wrap;">
-        <button type="button" class="btn btn-danger" id="btn-cheat-mode" style="font-size: 1rem; padding: 0.9rem 1.8rem;">
+      <div
+        style="text-align: center; margin-top: 1.5rem; display: flex; justify-content: center; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn btn-danger" id="btn-cheat-mode"
+          style="font-size: 1rem; padding: 0.9rem 1.8rem;">
           I want to cheat
         </button>
         <button class="btn btn-success" id="btn-submit-evaluation" style="font-size: 1.05rem; padding: 0.9rem 2.2rem;">
@@ -191,10 +193,12 @@
       <p class="setup-desc" id="finished-desc">
         All recordings for this session have been saved to your local storage folder.
       </p>
-      <div id="finished-meta" style="font-size: 0.95rem; color: var(--text-muted); background: rgba(0,0,0,0.25); padding: 1.2rem; border-radius: 8px; margin-bottom: 1.5rem; line-height: 1.6;">
-        Return to your chat and ask your AI agent to retrieve the recordings and evaluate your responses.
+      <div id="finished-meta"
+        style="font-size: 0.95rem; color: var(--text-muted); background: rgba(0,0,0,0.25); padding: 1.2rem; border-radius: 8px; margin-bottom: 1.5rem; line-height: 1.6;">
+        Return to your chat and ask your AI agent to evaluate your responses.
       </div>
-      <button class="btn btn-primary" id="btn-view-submitted-recordings" style="font-size: 0.95rem; padding: 0.75rem 1.5rem;">
+      <button class="btn btn-primary" id="btn-view-submitted-recordings"
+        style="font-size: 0.95rem; padding: 0.75rem 1.5rem;">
         Listen to Saved Audio
       </button>
     </section>
@@ -204,9 +208,11 @@
 
   <!-- Footer -->
   <footer class="app-footer">
-    TOEIC® is a registered trademark of Educational Testing Service (ETS). This simulator is for educational practice purposes.
+    TOEIC® is a registered trademark of Educational Testing Service (ETS). This simulator is for educational practice
+    purposes.
   </footer>
 
   <script type="module" src="app.js"></script>
 </body>
+
 </html>

@@ -4,7 +4,7 @@ export const VISUAL_QUESTIONS_GUIDE_TEXT = `# TOEIC Visual Content & Image Sourc
 
 When preparing image-based questions for **TOEIC Speaking (Q3–4: Describe a Picture)** or **TOEIC Writing (Q1–5: Write a Sentence Based on a Picture)**, you must **never default to generating raw inline SVGs**.
 
-Authentic exam simulation requires real, high-quality photographic media depicting authentic workplace scenarios. You must adhere strictly to the following 3-tier sourcing hierarchy:
+Authentic exam simulation requires real, high-quality photographic media depicting authentic workplace scenarios. You must adhere strictly to the following 2-tier sourcing hierarchy:
 
 \`\`\`
 [Visual Question Drafted]
@@ -15,12 +15,7 @@ Authentic exam simulation requires real, high-quality photographic media depicti
           ├─► [Decent Picture Found?] ──► YES ──► Use Direct HTTPS Image URL
           │
           ▼ NO
-   2. Fallback to Curated Image Pool (below)
-          │
-          ├─► [Curated Match Found?] ──► YES ──► Use Curated Image URL
-          │
-          ▼ NO
-   3. Last-Resort Fallback: Structured Semantic SVG
+   2. Last-Resort Fallback: Structured Semantic SVG
        (ONLY when offline or no decent image exists online; NO stick figures)
 \`\`\`
 
@@ -55,45 +50,7 @@ Direct CDN patterns:
 
 ---
 
-## 3. Curated High-Availability Direct Image Pool
-
-If web search is unavailable or returns ambiguous results, use these pre-approved direct URLs:
-
-### Corporate & Office
-- **Team Meeting around Table**:
-  https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1000&q=80
-- **Presentation at Boardroom Screen**:
-  https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1000&q=80
-- **Colleagues Reviewing Laptop**:
-  https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1000&q=80
-- **Modern Office Workstation**:
-  https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1000&q=80
-
-### Retail, Service & Hospitality
-- **Cashier Assisting Customer at Checkout**:
-  https://images.unsplash.com/photo-1556742049-0a67c5574f73?auto=format&fit=crop&w=1000&q=80
-- **Barista Preparing Coffee behind Counter**:
-  https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=1000&q=80
-- **Outdoor Dining & Restaurant Service**:
-  https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1000&q=80
-
-### Industry, Logistics & Construction
-- **Warehouse Worker Inspecting Inventory**:
-  https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=1000&q=80
-- **Construction Engineers Examining Blueprints**:
-  https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1000&q=80
-- **Factory Assembly Line Technician**:
-  https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=1000&q=80
-
-### Travel & Transportation
-- **Passengers in Airport Terminal with Suitcases**:
-  https://images.unsplash.com/photo-1529070538774-1843cb3265df?auto=format&fit=crop&w=1000&q=80
-- **Commuters on Transit Platform**:
-  https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=1000&q=80
-
----
-
-## 4. Fallback SVG Restrictions (Strict Last Resort)
+## 3. Fallback SVG Restrictions (Strict Last Resort)
 
 Generating raw inline SVG data URIs (\`data:image/svg+xml;utf8,...\`) is **strictly forbidden** unless you cannot access the internet or web search yielded zero usable pictures. If SVG fallback is unavoidable:
 - It **must** have a responsive \`viewBox\` (e.g., \`0 0 800 500\`).

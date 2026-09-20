@@ -21,8 +21,8 @@ test("visual-questions guide resource content defines internet-first hierarchy a
   assert.ok(VISUAL_QUESTIONS_GUIDE_TEXT.includes("Thematic Authenticity"));
   assert.ok(VISUAL_QUESTIONS_GUIDE_TEXT.includes("Compositional Density"));
   assert.ok(VISUAL_QUESTIONS_GUIDE_TEXT.includes("Keyword Compatibility"));
-  assert.ok(VISUAL_QUESTIONS_GUIDE_TEXT.includes("Direct HTTPS Link"));
-  assert.ok(VISUAL_QUESTIONS_GUIDE_TEXT.includes("Curated High-Availability Direct Image Pool"));
+  assert.ok(VISUAL_QUESTIONS_GUIDE_TEXT.includes("2-tier sourcing hierarchy"));
+  assert.ok(VISUAL_QUESTIONS_GUIDE_TEXT.includes("Recommended Search Strategies"));
   assert.ok(VISUAL_QUESTIONS_GUIDE_TEXT.includes("Fallback SVG Restrictions"));
   assert.ok(VISUAL_QUESTIONS_GUIDE_TEXT.includes("strictly forbidden"));
 });

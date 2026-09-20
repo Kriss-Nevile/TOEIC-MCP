@@ -10,7 +10,7 @@ export function registerResources(server: McpServer): void {
     VISUAL_QUESTIONS_RESOURCE_URI,
     {
       description:
-        "Official guide and curated photograph repository for sourcing authentic photographs for TOEIC visual questions (Speaking Q3-4, Writing Q1-5). Includes 'decent' picture criteria, web search query recipes, and pre-approved direct CDN image URLs.",
+        "Official guide for sourcing authentic photographs for TOEIC visual questions (Speaking Q3-4, Writing Q1-5). Includes 'decent' picture criteria, web search query recipes, and direct CDN patterns.",
       mimeType: "text/markdown",
     },
     async (uri) => {

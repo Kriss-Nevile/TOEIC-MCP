@@ -46,7 +46,7 @@ Authentic TOEIC Speaking & Writing preparation requires responses delivered unde
 
 | Resource URI | Description |
 | :--- | :--- |
-| `toeic://guides/visual-questions` | Image sourcing reference and curated high-availability photograph directory for visual test items (Speaking Q3–4 and Writing Q1–5). |
+| `toeic://guides/visual-questions` | Image sourcing guide, picture quality criteria, and search query recipes for visual test items (Speaking Q3–4 and Writing Q1–5). |
 
 
 ---

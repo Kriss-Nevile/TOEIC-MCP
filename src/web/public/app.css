@@ -1047,4 +1047,86 @@ footer.app-footer {
   color: #fff;
 }
 
+/* Section Transition Modal (Speaking -> Writing in Combined Test) */
+.section-transition-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 14, 26, 0.88);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1.5rem;
+}
+
+.transition-card {
+  max-width: 580px;
+  width: 100%;
+  text-align: center;
+  padding: 2.5rem 2rem;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+.transition-icon {
+  font-size: 3rem;
+  margin-bottom: 0.75rem;
+}
+
+.transition-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.75rem;
+}
+
+.transition-desc {
+  color: var(--text-muted);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
+
+.transition-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  text-align: left;
+  font-size: 0.9rem;
+  color: #c7d2fe;
+}
+
+.review-section-header {
+  margin: 2rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.review-section-header h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #fff;
+  margin: 0;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 

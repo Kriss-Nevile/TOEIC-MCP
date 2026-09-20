@@ -87,7 +87,8 @@ The server exposes tools categorized into **Oral & Written Exam Simulation**, **
 | :--- | :--- | :--- |
 | `launch_speaking_test` | `questions: SpeakingQuestion[]`, `selected_question_numbers?: number[]`, `session_title?: string`, `output_directory?: string`, `auto_open_browser?: boolean` | Initializes an oral examination session, starts web server, launches browser simulator, and records PCM WAV audio files. |
 | `launch_writing_test` | `questions: WritingQuestion[]`, `selected_question_numbers?: number[]`, `session_title?: string`, `output_directory?: string`, `auto_open_browser?: boolean` | Initializes a written examination session, starts web server, launches distraction-free writing environment with real-time word counting, and saves `.txt` responses. |
-| `get_test_submission` | `session_id: string`, `destination_folder?: string` | Inspects session folder and returns submission status, recorded audio paths (speaking) or written texts and word counts (writing) for model evaluation. |
+| `launch_speaking_and_writing_test` | `speaking_questions: SpeakingQuestion[]`, `writing_questions: WritingQuestion[]`, `selected_speaking_question_numbers?: number[]`, `selected_writing_question_numbers?: number[]`, `session_title?: string`, `output_directory?: string`, `auto_open_browser?: boolean` | Initializes a combined examination session running Speaking first, then Writing with automatic transition, saving files into `<sessionDir>/recordings/` and `<sessionDir>/writing/`. |
+| `get_test_submission` | `session_id: string`, `destination_folder?: string` | Inspects session folder and returns submission status, recorded audio paths (speaking) and/or written texts and word counts (writing) for model evaluation. |
 
 ---
 

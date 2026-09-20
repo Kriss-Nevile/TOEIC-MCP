@@ -24,10 +24,11 @@ const storage = multer.diskStorage({
     if (!session) {
       return cb(new Error(`Session not found: ${sessionId}`), "");
     }
-    if (!fs.existsSync(session.recordingsDir)) {
-      fs.mkdirSync(session.recordingsDir, { recursive: true });
+    const targetDir = session.recordingsDir || path.join((session as any).sessionDir || (session as any).storageDir, "recordings");
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
     }
-    cb(null, session.recordingsDir);
+    cb(null, targetDir);
   },
   filename: (req, file, cb) => {
     const questionNumber = req.body.questionNumber || "unknown";
@@ -73,9 +74,16 @@ export function createExpressApp(): express.Express {
       return res.status(404).json({ error: "Session not found" });
     }
     const filename = path.basename(String(req.params.filename));
-    const filePath = path.join(session.recordingsDir, filename);
+    const targetDir = session.recordingsDir || path.join((session as any).sessionDir || (session as any).storageDir, "recordings");
+    let filePath = path.join(targetDir, filename);
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: "Recording file not found" });
+      // Legacy fallback
+      const legacyPath = path.join((session as any).sessionDir || (session as any).storageDir || session.recordingsDir, filename);
+      if (fs.existsSync(legacyPath)) {
+        filePath = legacyPath;
+      } else {
+        return res.status(404).json({ error: "Recording file not found" });
+      }
     }
     const ext = path.extname(filename).toLowerCase();
     const mimeMap: Record<string, string> = {
@@ -97,9 +105,18 @@ export function createExpressApp(): express.Express {
       return res.status(404).json({ error: "Session not found" });
     }
     const filename = path.basename(String(req.params.filename));
-    const filePath = path.join(session.recordingsDir, filename);
+    const writingDir =
+      (session as any).writingDir ||
+      path.join((session as any).sessionDir || (session as any).storageDir || session.recordingsDir, "writing");
+    let filePath = path.join(writingDir, filename);
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: "Writing response file not found" });
+      // Legacy fallback
+      const legacyPath = path.join((session as any).sessionDir || (session as any).storageDir || session.recordingsDir, filename);
+      if (fs.existsSync(legacyPath)) {
+        filePath = legacyPath;
+      } else {
+        return res.status(404).json({ error: "Writing response file not found" });
+      }
     }
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.sendFile(filePath);
@@ -167,11 +184,25 @@ export function createExpressApp(): express.Express {
     const questionNumber = Number(req.body.questionNumber);
     const writtenText = typeof req.body.writtenText === "string" ? req.body.writtenText : "";
     const durationSeconds = Number(req.body.durationSeconds) || 0;
-    const question = session.questions.find((q) => q.questionNumber === questionNumber);
+    const question =
+      (session as any).writingQuestions?.find((q: any) => q.questionNumber === questionNumber) ||
+      session.questions.find(
+        (q) =>
+          q.questionNumber === questionNumber &&
+          ["write_sentence", "respond_request", "write_opinion"].includes((q as any).questionType)
+      ) ||
+      session.questions.find((q) => q.questionNumber === questionNumber);
 
     const words = writtenText.trim() ? writtenText.trim().split(/\s+/).length : 0;
     const textFileName = `q${questionNumber}.txt`;
-    const textFilePath = path.join(session.recordingsDir, textFileName);
+    const writingDir =
+      (session as any).writingDir ||
+      path.join((session as any).sessionDir || (session as any).storageDir || session.recordingsDir, "writing");
+
+    if (!fs.existsSync(writingDir)) {
+      fs.mkdirSync(writingDir, { recursive: true });
+    }
+    const textFilePath = path.join(writingDir, textFileName);
 
     const submission = {
       questionNumber,

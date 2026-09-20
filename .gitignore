@@ -6,6 +6,7 @@ package-lock.json.bak
 dist/
 
 # User audio recordings & sessions data
+sessions/
 recordings/
 writings/
 scratch/

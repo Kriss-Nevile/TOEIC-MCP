@@ -48,7 +48,8 @@ export interface SpeakingSession {
   isDrill: boolean;
   status: SessionStatus;
   questions: SpeakingQuestion[];
-  recordingsDir: string;
+  sessionDir: string;
+  recordingsDir: string; // <sessionDir>/recordings
   submissions: Record<number, QuestionSubmission>;
   createdAt: string;
   updatedAt: string;
@@ -113,12 +114,36 @@ export interface WritingSession {
   status: SessionStatus;
   questions: WritingQuestion[];
   parts?: WritingExamPart[];
+  sessionDir: string;
+  writingDir: string; // <sessionDir>/writing
   storageDir: string; // Directory where text responses and metadata are saved
-  recordingsDir: string; // Kept for backwards-compatibility (points to storageDir)
+  recordingsDir: string; // Kept for backwards-compatibility (points to sessionDir)
   submissions: Record<number, WritingQuestionSubmission>;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
 }
 
-export type ExamSession = SpeakingSession | WritingSession;
+export interface SpeakingAndWritingSession {
+  id: string;
+  testType: "speaking_and_writing";
+  title?: string;
+  isDrill: boolean;
+  status: SessionStatus;
+  questions: (SpeakingQuestion | WritingQuestion)[];
+  speakingQuestions: SpeakingQuestion[];
+  writingQuestions: WritingQuestion[];
+  writingParts?: WritingExamPart[];
+  parts?: WritingExamPart[];
+  sessionDir: string;
+  recordingsDir: string; // <sessionDir>/recordings
+  writingDir: string;    // <sessionDir>/writing
+  storageDir: string;    // Alias to sessionDir
+  submissions: Record<number, QuestionSubmission>; // speaking submissions
+  writingSubmissions: Record<number, WritingQuestionSubmission>; // writing submissions
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export type ExamSession = SpeakingSession | WritingSession | SpeakingAndWritingSession;

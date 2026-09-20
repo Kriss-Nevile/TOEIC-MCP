@@ -5,6 +5,8 @@ import { WavAudioRecorder } from "./wav-recorder.js";
 let sessionId = null;
 let sessionData = null;
 let isWritingTest = false;
+let isCombinedTest = false;
+let isWritingPhase = false;
 let currentQuestionIndex = 0;
 let mediaStream = null;
 let wavRecorder = null;
@@ -38,6 +40,9 @@ const viewSetup = document.getElementById("view-setup");
 const viewExam = document.getElementById("view-exam");
 const viewReview = document.getElementById("view-review");
 const viewFinished = document.getElementById("view-finished");
+
+const sectionTransitionModal = document.getElementById("section-transition-modal");
+const btnBeginWritingSection = document.getElementById("btn-begin-writing-section");
 
 const setupTitle = document.getElementById("setup-title");
 const setupDesc = document.getElementById("setup-desc");
@@ -210,10 +215,22 @@ async function init() {
     if (!res.ok) throw new Error("Failed to load session details");
     sessionData = await res.json();
 
-    isWritingTest = Boolean(sessionData.testType === "writing" || sessionId.startsWith("wrt_"));
+    isCombinedTest = Boolean(sessionData.testType === "speaking_and_writing" || sessionId.startsWith("toeic_"));
+    isWritingTest = Boolean(!isCombinedTest && (sessionData.testType === "writing" || sessionId.startsWith("wrt_")));
 
     // Adapt Branding and Page Headers
-    if (isWritingTest) {
+    if (isCombinedTest) {
+      document.title = "TOEIC Speaking & Writing Simulator";
+      if (brandIcon) brandIcon.textContent = "🎙️✍️";
+      if (brandTitle) brandTitle.textContent = "TOEIC Speaking & Writing Simulator";
+      if (btnViewSubmitted) {
+        btnViewSubmitted.textContent = "Review Saved Responses & Audio";
+      }
+      const writingQList = sessionData.writingQuestions || sessionData.questions.filter((q) => ["write_sentence", "respond_request", "write_opinion"].includes(q.questionType));
+      writingParts = sessionData.writingParts && sessionData.writingParts.length > 0
+        ? sessionData.writingParts
+        : buildWritingPartsClient(writingQList);
+    } else if (isWritingTest) {
       document.title = "TOEIC Writing Test Simulator";
       if (brandIcon) brandIcon.textContent = "✍️";
       if (brandTitle) brandTitle.textContent = "TOEIC Writing Simulator";
@@ -245,7 +262,22 @@ async function init() {
     }
 
     // Setup screen configuration
-    if (isWritingTest) {
+    if (isCombinedTest) {
+      if (setupTitle) {
+        setupTitle.textContent = sessionData.title || (sessionData.isDrill ? "Targeted Speaking & Writing Drill" : "Full TOEIC Speaking & Writing Mock Test");
+      }
+      if (setupDesc) {
+        setupDesc.textContent =
+          "Welcome to the complete TOEIC Speaking & Writing Test simulation. You will complete the oral Speaking section first, followed by the Writing section.";
+      }
+      if (setupMicBox) setupMicBox.style.display = "flex";
+      if (setupWritingBox) setupWritingBox.style.display = "flex";
+
+      if (btnStartExam) {
+        btnStartExam.disabled = true;
+        btnStartExam.textContent = "Start Speaking & Writing Test";
+      }
+    } else if (isWritingTest) {
       if (setupTitle) {
         setupTitle.textContent = sessionData.title || (sessionData.isDrill ? "Targeted Writing Drill" : "Full Writing Mock Test");
       }
@@ -269,7 +301,19 @@ async function init() {
     }
 
     if (setupExamSummary) {
-      if (isWritingTest) {
+      if (isCombinedTest) {
+        const spkList = sessionData.speakingQuestions || sessionData.questions.filter((q) => !["write_sentence", "respond_request", "write_opinion"].includes(q.questionType));
+        const wrtList = sessionData.writingQuestions || sessionData.questions.filter((q) => ["write_sentence", "respond_request", "write_opinion"].includes(q.questionType));
+        const wrtMin = Math.ceil(writingParts.reduce((acc, p) => acc + p.timeSeconds, 0) / 60);
+        setupExamSummary.innerHTML = `
+          <strong>${sessionData.title || "TOEIC Speaking & Writing Mock Test"}</strong><br>
+          • <strong>Speaking Section:</strong> ${spkList.length} Questions (~20 minutes)<br>
+          • <strong>Writing Section:</strong> ${wrtList.length} Questions across ${writingParts.length} Parts (~${wrtMin} minutes)<br>
+          <span style="display:inline-block; margin-top:0.5rem; color: #a5b4fc; font-weight: 600;">
+            Complete Speaking first, followed immediately by Writing.
+          </span>
+        `;
+      } else if (isWritingTest) {
         const partsSummary = writingParts.map((p) => {
           const mins = Math.ceil(p.timeSeconds / 60);
           return `• <strong>${p.title}:</strong> ${p.questions.length} question${p.questions.length > 1 ? "s" : ""} (${mins} min${mins !== 1 ? "s" : ""} total)`;
@@ -315,7 +359,9 @@ function handleAlreadyCompletedSession() {
   const finishedMeta = document.getElementById("finished-meta");
 
   if (finishedTitle) {
-    finishedTitle.textContent = isWritingTest ? "Writing Test Completed & Locked" : "Test Session Completed & Locked";
+    finishedTitle.textContent = isCombinedTest
+      ? "Speaking & Writing Test Completed & Locked"
+      : (isWritingTest ? "Writing Test Completed & Locked" : "Test Session Completed & Locked");
   }
 
   if (finishedDesc) {
@@ -330,35 +376,39 @@ function handleAlreadyCompletedSession() {
   }
 
   if (finishedMeta) {
-    finishedMeta.textContent = isWritingTest
-      ? "Return to your chat and ask your AI agent to generate your rubric evaluation."
-      : "Return to your chat and ask your AI agent to generate your evaluation.";
+    finishedMeta.textContent = isCombinedTest
+      ? "Return to your chat and ask your AI agent to generate your Speaking & Writing rubric evaluation."
+      : (isWritingTest
+        ? "Return to your chat and ask your AI agent to generate your rubric evaluation."
+        : "Return to your chat and ask your AI agent to generate your evaluation.");
   }
 
   if (btnViewSubmitted) {
-    btnViewSubmitted.textContent = isWritingTest ? "Review Saved Responses" : "Listen to Saved Audio";
+    btnViewSubmitted.textContent = isCombinedTest
+      ? "Review Saved Responses & Audio"
+      : (isWritingTest ? "Review Saved Responses" : "Listen to Saved Audio");
   }
 
   // Populate state from server submissions
   if (sessionData.submissions) {
-    if (isWritingTest) {
-      Object.values(sessionData.submissions).forEach((sub) => {
-        writtenAnswers[sub.questionNumber] = {
-          text: sub.writtenText || "",
-          durationSeconds: sub.durationSeconds || 0,
-          question: sessionData.questions.find((q) => q.questionNumber === sub.questionNumber)
-        };
-      });
-    } else {
-      Object.values(sessionData.submissions).forEach((sub) => {
+    Object.values(sessionData.submissions).forEach((sub) => {
+      const q = sessionData.questions.find((item) => item.questionNumber === sub.questionNumber);
+      if (sub.audioFileName) {
         questionBlobs[sub.questionNumber] = {
           blob: null,
           url: `/api/sessions/${sessionId}/recordings/${sub.audioFileName}`,
           duration: sub.durationSeconds,
-          question: sessionData.questions.find((q) => q.questionNumber === sub.questionNumber)
+          question: q
         };
-      });
-    }
+      }
+      if (sub.writtenText !== undefined) {
+        writtenAnswers[sub.questionNumber] = {
+          text: sub.writtenText || "",
+          durationSeconds: sub.durationSeconds || 0,
+          question: q
+        };
+      }
+    });
   }
 }
 
@@ -367,12 +417,16 @@ function openSubmittedReview() {
   viewReview.style.display = "flex";
 
   if (reviewTitle) {
-    reviewTitle.textContent = isWritingTest ? "Saved Written Responses" : "Recorded Voice Samples";
+    reviewTitle.textContent = isCombinedTest
+      ? "Saved Speaking & Writing Submissions"
+      : (isWritingTest ? "Saved Written Responses" : "Recorded Voice Samples");
   }
   if (reviewDesc) {
-    reviewDesc.textContent = isWritingTest
-      ? "Review the written text responses saved locally for this test session."
-      : "Listen back to the voice recordings saved locally for this test session.";
+    reviewDesc.textContent = isCombinedTest
+      ? "Review the voice recordings and written text responses saved locally for this test session."
+      : (isWritingTest
+        ? "Review the written text responses saved locally for this test session."
+        : "Listen back to the voice recordings saved locally for this test session.");
   }
 
   renderReviewList();
@@ -410,9 +464,11 @@ function setupEventListeners() {
       btnCheatMode.disabled = true;
       btnCheatMode.textContent = "Cheat Mode Active";
       if (reviewDesc) {
-        reviewDesc.textContent = isWritingTest
-          ? "Cheat Mode Active: Response editing unlocked! You can now edit any written response before saving."
-          : "Cheat Mode Active: Re-recording options unlocked! You can now re-record any question before saving.";
+        reviewDesc.textContent = isCombinedTest
+          ? "Cheat Mode Active: Re-recording and response editing unlocked! You can now re-record audio or edit written responses before saving."
+          : (isWritingTest
+            ? "Cheat Mode Active: Response editing unlocked! You can now edit any written response before saving."
+            : "Cheat Mode Active: Re-recording options unlocked! You can now re-record any question before saving.");
       }
       renderReviewList();
     });
@@ -440,6 +496,10 @@ function setupEventListeners() {
 
   if (btnToggleDirections) {
     btnToggleDirections.addEventListener("click", toggleDirections);
+  }
+
+  if (btnBeginWritingSection) {
+    btnBeginWritingSection.addEventListener("click", handleBeginWritingSection);
   }
 }
 
@@ -515,6 +575,7 @@ function startExam() {
   viewExam.style.display = "flex";
 
   if (isWritingTest) {
+    isWritingPhase = true;
     if (speakingNavHeader) speakingNavHeader.style.display = "none";
     if (partNavContainer) partNavContainer.style.display = "flex";
     if (micActivityCard) micActivityCard.style.display = "none";
@@ -525,6 +586,8 @@ function startExam() {
     currentPartQuestionIndex = 0;
     startWritingPart(0);
   } else {
+    // Speaking test or Combined test starts with Speaking
+    isWritingPhase = false;
     if (speakingNavHeader) speakingNavHeader.style.display = "flex";
     if (partNavContainer) partNavContainer.style.display = "none";
     if (micActivityCard) micActivityCard.style.display = "flex";
@@ -532,6 +595,10 @@ function startExam() {
     currentQuestionIndex = 0;
     loadCurrentQuestion();
   }
+}
+
+function isInWritingMode() {
+  return isWritingTest || isWritingPhase;
 }
 
 function countWords(str) {
@@ -554,7 +621,7 @@ function updateWritingLiveStats() {
   }
 
   // Update in-memory answer immediately so switching questions/tabs retains text
-  if (isWritingTest && writingParts[currentPartIndex]) {
+  if (isInWritingMode() && writingParts[currentPartIndex]) {
     const currentQ = writingParts[currentPartIndex].questions[currentPartQuestionIndex];
     if (currentQ) {
       if (!writtenAnswers[currentQ.questionNumber]) {
@@ -774,7 +841,7 @@ function loadWritingPartQuestion(qIndex) {
 }
 
 function saveCurrentWritingAnswer() {
-  if (!isWritingTest) return;
+  if (!isInWritingMode()) return;
   const part = writingParts[currentPartIndex];
   if (!part) return;
   const question = part.questions[currentPartQuestionIndex];
@@ -790,7 +857,7 @@ function saveCurrentWritingAnswer() {
 }
 
 function handlePrevQuestionClick() {
-  if (isWritingTest) {
+  if (isInWritingMode()) {
     if (currentPartQuestionIndex > 0) {
       switchWritingQuestion(currentPartQuestionIndex - 1);
     }
@@ -798,14 +865,17 @@ function handlePrevQuestionClick() {
 }
 
 function handleNextQuestionClick() {
-  if (isWritingTest) {
+  if (isInWritingMode()) {
     const part = writingParts[currentPartIndex];
     if (part && currentPartQuestionIndex < part.questions.length - 1) {
       switchWritingQuestion(currentPartQuestionIndex + 1);
     }
   } else {
     // Speaking
-    const question = sessionData.questions[currentQuestionIndex];
+    const speakingList = isCombinedTest
+      ? (sessionData.speakingQuestions || sessionData.questions.filter((q) => !["write_sentence", "respond_request", "write_opinion"].includes(q.questionType)))
+      : sessionData.questions;
+    const question = speakingList[currentQuestionIndex];
     if (!question) return;
 
     clearInterval(timerInterval);
@@ -817,7 +887,7 @@ function handleNextQuestionClick() {
 }
 
 function handleFinishPartClick() {
-  if (!isWritingTest) return;
+  if (!isInWritingMode()) return;
   saveCurrentWritingAnswer();
 
   const part = writingParts[currentPartIndex];
@@ -859,19 +929,56 @@ function toggleDirections() {
   partDirectionsPanel.style.display = isHidden ? "block" : "none";
 }
 
+function transitionSpeakingToWritingSection() {
+  clearInterval(timerInterval);
+  playChime();
+
+  if (sectionTransitionModal) {
+    sectionTransitionModal.style.display = "flex";
+  } else {
+    handleBeginWritingSection();
+  }
+}
+
+function handleBeginWritingSection() {
+  if (sectionTransitionModal) {
+    sectionTransitionModal.style.display = "none";
+  }
+
+  isWritingPhase = true;
+
+  if (speakingNavHeader) speakingNavHeader.style.display = "none";
+  if (partNavContainer) partNavContainer.style.display = "flex";
+  if (micActivityCard) micActivityCard.style.display = "none";
+  if (writingInputCard) writingInputCard.style.display = "flex";
+  if (writingTextarea) writingTextarea.value = "";
+
+  currentPartIndex = 0;
+  currentPartQuestionIndex = 0;
+  startWritingPart(0);
+}
+
 // Speaking Test Functions
 function loadCurrentQuestion() {
-  const question = sessionData.questions[currentQuestionIndex];
+  const speakingList = isCombinedTest
+    ? (sessionData.speakingQuestions || sessionData.questions.filter((q) => !["write_sentence", "respond_request", "write_opinion"].includes(q.questionType)))
+    : sessionData.questions;
+
+  const question = speakingList[currentQuestionIndex];
   if (!question) {
-    finishExam();
+    if (isCombinedTest) {
+      transitionSpeakingToWritingSection();
+    } else {
+      finishExam();
+    }
     return;
   }
 
   const currentItemNum = currentQuestionIndex + 1;
-  const totalItems = sessionData.questions.length;
+  const totalItems = speakingList.length;
   examQCounter.textContent = sessionData.isDrill
-    ? `Question ${question.questionNumber} (${currentItemNum} of ${totalItems} in drill)`
-    : `Question ${question.questionNumber} of ${totalItems}`;
+    ? (isCombinedTest ? `Speaking - Question ${question.questionNumber} (${currentItemNum} of ${totalItems})` : `Question ${question.questionNumber} (${currentItemNum} of ${totalItems} in drill)`)
+    : (isCombinedTest ? `Speaking - Question ${question.questionNumber} of ${totalItems}` : `Question ${question.questionNumber} of ${totalItems}`);
 
   const conf = TYPE_CONFIG[question.questionType] || {
     badge: question.questionType,
@@ -1055,15 +1162,21 @@ function finishExam() {
   }
 
   if (reviewTitle) {
-    reviewTitle.textContent = isWritingTest ? "Review Your Written Responses" : "Review Your Recordings";
+    reviewTitle.textContent = isCombinedTest
+      ? "Review Your Speaking & Writing Submissions"
+      : (isWritingTest ? "Review Your Written Responses" : "Review Your Recordings");
   }
   if (reviewDesc) {
-    reviewDesc.textContent = isWritingTest
-      ? "Review your written answers below. When ready, click 'Save All Responses' to persist your submission to disk."
-      : "Listen back to your recorded answers in memory. When ready, click below to save everything to your storage folder.";
+    reviewDesc.textContent = isCombinedTest
+      ? "Review your recorded voice answers and written responses below. When ready, click 'Save All Submissions' to persist everything to your local storage folder."
+      : (isWritingTest
+        ? "Review your written answers below. When ready, click 'Save All Responses' to persist your submission to disk."
+        : "Listen back to your recorded answers in memory. When ready, click below to save everything to your storage folder.");
   }
   if (btnSubmitEvaluation) {
-    btnSubmitEvaluation.textContent = isWritingTest ? "Save All Responses" : "Save All Recordings";
+    btnSubmitEvaluation.textContent = isCombinedTest
+      ? "Save All Submissions"
+      : (isWritingTest ? "Save All Responses" : "Save All Recordings");
   }
 
   renderReviewList();
@@ -1083,178 +1196,240 @@ function renderReviewList() {
   reviewList.innerHTML = "";
   const isCompleted = sessionData && sessionData.status === "completed";
 
-  sessionData.questions.forEach((q) => {
-    const card = document.createElement("div");
-    card.className = "review-card";
-    card.id = `review-card-${q.questionNumber}`;
+  if (isCombinedTest) {
+    const spkList = sessionData.speakingQuestions || sessionData.questions.filter((q) => !["write_sentence", "respond_request", "write_opinion"].includes(q.questionType));
+    const wrtList = sessionData.writingQuestions || sessionData.questions.filter((q) => ["write_sentence", "respond_request", "write_opinion"].includes(q.questionType));
 
-    const conf = TYPE_CONFIG[q.questionType] || {
-      badge: q.questionType,
-      instructions: "Respond to the question prompt."
-    };
+    // Section 1 Header: Speaking
+    const spkHeader = document.createElement("div");
+    spkHeader.className = "review-section-header";
+    spkHeader.innerHTML = `
+      <span class="section-title">🎙️ Section 1: Speaking Test</span>
+      <span class="section-count">${spkList.length} Questions Recorded</span>
+    `;
+    reviewList.appendChild(spkHeader);
 
-    const promptText = q.promptText || "";
-    const isLongPrompt = promptText.length > 85 || Boolean(q.contextData) || Boolean(q.imageUrl);
-    const previewText = isLongPrompt && promptText.length > 85
-      ? promptText.substring(0, 85) + "..."
-      : promptText;
+    spkList.forEach((q) => {
+      reviewList.appendChild(createSpeakingReviewCard(q, isCompleted));
+    });
 
-    if (isWritingTest) {
-      const saved = writtenAnswers[q.questionNumber];
-      const answerText = saved ? saved.text : "";
-      const wordCount = countWords(answerText);
+    // Section 2 Header: Writing
+    const wrtHeader = document.createElement("div");
+    wrtHeader.className = "review-section-header";
+    wrtHeader.innerHTML = `
+      <span class="section-title">✍️ Section 2: Writing Test</span>
+      <span class="section-count">${wrtList.length} Questions across ${writingParts.length} Parts</span>
+    `;
+    reviewList.appendChild(wrtHeader);
 
-      card.innerHTML = `
-        <div class="review-card-top">
-          <div class="review-card-title">
-            <span class="review-q-num">Question ${q.questionNumber}</span>
-            <span class="badge badge-part">${conf.badge}</span>
-          </div>
-          <div class="review-card-meta">
-            <span class="review-duration-tag" id="word-tag-${q.questionNumber}">${wordCount} word${wordCount !== 1 ? "s" : ""}</span>
-          </div>
+    wrtList.forEach((q) => {
+      reviewList.appendChild(createWritingReviewCard(q, isCompleted));
+    });
+  } else if (isWritingTest) {
+    sessionData.questions.forEach((q) => {
+      reviewList.appendChild(createWritingReviewCard(q, isCompleted));
+    });
+  } else {
+    sessionData.questions.forEach((q) => {
+      reviewList.appendChild(createSpeakingReviewCard(q, isCompleted));
+    });
+  }
+}
+
+function createSpeakingReviewCard(q, isCompleted) {
+  const card = document.createElement("div");
+  card.className = "review-card";
+  card.id = `review-card-${q.questionNumber}`;
+
+  const conf = TYPE_CONFIG[q.questionType] || {
+    badge: q.questionType,
+    instructions: "Respond to the question prompt."
+  };
+
+  const promptText = q.promptText || "";
+  const isLongPrompt = promptText.length > 85 || Boolean(q.contextData) || Boolean(q.imageUrl);
+  const previewText = isLongPrompt && promptText.length > 85
+    ? promptText.substring(0, 85) + "..."
+    : promptText;
+
+  const saved = questionBlobs[q.questionNumber];
+  const url = saved ? saved.url : null;
+  const durationSec = saved ? saved.duration : q.responseTimeSeconds;
+
+  card.innerHTML = `
+    <div class="review-card-top">
+      <div class="review-card-title">
+        <span class="review-q-num">Question ${q.questionNumber}</span>
+        <span class="badge badge-part">${conf.badge}</span>
+      </div>
+      <div class="review-card-meta">
+        <span class="review-duration-tag" id="duration-tag-${q.questionNumber}">${durationSec}s recorded</span>
+      </div>
+    </div>
+
+    <div class="review-prompt-box">
+      <div class="review-prompt-preview" id="prompt-prev-${q.questionNumber}">
+        ${escapeHtml(previewText)}
+      </div>
+
+      ${isLongPrompt ? `
+        <div class="review-prompt-full" id="prompt-full-${q.questionNumber}">
+          <div class="review-full-text">${escapeHtml(promptText)}</div>
+          ${q.contextData ? `<div class="review-context-block">${escapeHtml(q.contextData)}</div>` : ""}
+          ${q.imageUrl ? `<div class="review-image-block"><img src="${escapeHtml(q.imageUrl)}" alt="Question Visual" loading="lazy" /></div>` : ""}
         </div>
+        <button type="button" class="review-expand-btn" data-q="${q.questionNumber}">
+          <span class="expand-icon">▼</span>
+          <span class="expand-text">Show full question</span>
+        </button>
+      ` : ""}
+    </div>
 
-        <div class="review-prompt-box">
-          <div class="review-prompt-preview" id="prompt-prev-${q.questionNumber}">
-            ${escapeHtml(previewText)}
-          </div>
-
-          ${isLongPrompt ? `
-            <div class="review-prompt-full" id="prompt-full-${q.questionNumber}">
-              <div class="review-full-text">${escapeHtml(promptText)}</div>
-              ${q.contextData ? `<div class="review-context-block">${escapeHtml(q.contextData)}</div>` : ""}
-              ${q.imageUrl ? `<div class="review-image-block"><img src="${escapeHtml(q.imageUrl)}" alt="Question Visual" loading="lazy" /></div>` : ""}
-            </div>
-            <button type="button" class="review-expand-btn" data-q="${q.questionNumber}">
-              <span class="expand-icon">▼</span>
-              <span class="expand-text">Show full question</span>
-            </button>
-          ` : ""}
-        </div>
-
-        <div class="review-written-box" id="written-box-${q.questionNumber}">
-          <div class="review-written-header">
-            <span>Written Response:</span>
-            ${!isCompleted && cheatModeActive ? `<span style="color: var(--accent-record);">[Editing Enabled]</span>` : ""}
-          </div>
-          ${!isCompleted && cheatModeActive ? `
-            <textarea class="review-textarea-edit" id="edit-textarea-${q.questionNumber}" data-q="${q.questionNumber}">${escapeHtml(answerText)}</textarea>
-          ` : `
-            <div class="review-written-text">
-              ${answerText.trim() ? escapeHtml(answerText) : `<em style="color: var(--text-dim);">(No response written)</em>`}
-            </div>
-          `}
-        </div>
-      `;
-
-      if (!isCompleted && cheatModeActive) {
-        const editTextarea = card.querySelector(`#edit-textarea-${q.questionNumber}`);
-        if (editTextarea) {
-          editTextarea.addEventListener("input", (e) => {
-            const newText = e.target.value;
-            writtenAnswers[q.questionNumber] = {
-              text: newText,
-              durationSeconds: saved ? saved.durationSeconds : 0,
-              question: q
-            };
-            const wordTag = card.querySelector(`#word-tag-${q.questionNumber}`);
-            if (wordTag) {
-              const count = countWords(newText);
-              wordTag.textContent = `${count} word${count !== 1 ? "s" : ""}`;
-            }
-          });
-        }
+    <div class="review-playback-box" id="playback-box-${q.questionNumber}">
+      <div class="playback-label">
+        <span>Voice Recording:</span>
+      </div>
+      ${url
+        ? `<audio class="review-audio-player" controls preload="metadata" src="${url}"></audio>`
+        : `<span class="review-missing">No voice recording captured</span>`
       }
-    } else {
-      // Speaking Test Card
-      const saved = questionBlobs[q.questionNumber];
-      const url = saved ? saved.url : null;
-      const durationSec = saved ? saved.duration : q.responseTimeSeconds;
-
-      card.innerHTML = `
-        <div class="review-card-top">
-          <div class="review-card-title">
-            <span class="review-q-num">Question ${q.questionNumber}</span>
-            <span class="badge badge-part">${conf.badge}</span>
-          </div>
-          <div class="review-card-meta">
-            <span class="review-duration-tag" id="duration-tag-${q.questionNumber}">${durationSec}s recorded</span>
-          </div>
+      ${!isCompleted && cheatModeActive ? `
+        <div class="review-card-actions">
+          <button type="button" class="btn-rerecord" id="btn-rerecord-${q.questionNumber}" data-q="${q.questionNumber}">
+            Re-record Answer
+          </button>
         </div>
+      ` : ""}
+    </div>
+  `;
 
-        <div class="review-prompt-box">
-          <div class="review-prompt-preview" id="prompt-prev-${q.questionNumber}">
-            ${escapeHtml(previewText)}
-          </div>
-
-          ${isLongPrompt ? `
-            <div class="review-prompt-full" id="prompt-full-${q.questionNumber}">
-              <div class="review-full-text">${escapeHtml(promptText)}</div>
-              ${q.contextData ? `<div class="review-context-block">${escapeHtml(q.contextData)}</div>` : ""}
-              ${q.imageUrl ? `<div class="review-image-block"><img src="${escapeHtml(q.imageUrl)}" alt="Question Visual" loading="lazy" /></div>` : ""}
-            </div>
-            <button type="button" class="review-expand-btn" data-q="${q.questionNumber}">
-              <span class="expand-icon">▼</span>
-              <span class="expand-text">Show full question</span>
-            </button>
-          ` : ""}
-        </div>
-
-        <div class="review-playback-box" id="playback-box-${q.questionNumber}">
-          <div class="playback-label">
-            <span>Voice Recording:</span>
-          </div>
-          ${url
-          ? `<audio class="review-audio-player" controls preload="metadata" src="${url}"></audio>`
-          : `<span class="review-missing">No voice recording captured</span>`
-        }
-          ${!isCompleted && cheatModeActive ? `
-            <div class="review-card-actions">
-              <button type="button" class="btn-rerecord" id="btn-rerecord-${q.questionNumber}" data-q="${q.questionNumber}">
-                Re-record Answer
-              </button>
-            </div>
-          ` : ""}
-        </div>
-      `;
-
-      if (!isCompleted && cheatModeActive) {
-        const rerecordBtn = card.querySelector(`#btn-rerecord-${q.questionNumber}`);
-        if (rerecordBtn) {
-          rerecordBtn.addEventListener("click", () => {
-            startRerecording(q, card);
-          });
-        }
-      }
+  if (!isCompleted && cheatModeActive) {
+    const rerecordBtn = card.querySelector(`#btn-rerecord-${q.questionNumber}`);
+    if (rerecordBtn) {
+      rerecordBtn.addEventListener("click", () => {
+        startRerecording(q, card);
+      });
     }
+  }
 
-    // Connect expand/collapse button for long prompts
-    if (isLongPrompt) {
-      const expandBtn = card.querySelector(`.review-expand-btn`);
-      const fullBox = card.querySelector(`#prompt-full-${q.questionNumber}`);
-      const prevBox = card.querySelector(`#prompt-prev-${q.questionNumber}`);
-      if (expandBtn && fullBox && prevBox) {
-        const icon = expandBtn.querySelector(".expand-icon");
-        const label = expandBtn.querySelector(".expand-text");
+  if (isLongPrompt) {
+    attachPromptExpandHandler(card, q.questionNumber);
+  }
 
-        expandBtn.addEventListener("click", () => {
-          const isExpanded = fullBox.classList.toggle("expanded");
-          if (isExpanded) {
-            prevBox.style.display = "none";
-            if (icon) icon.textContent = "▲";
-            if (label) label.textContent = "Collapse question";
-          } else {
-            prevBox.style.display = "block";
-            if (icon) icon.textContent = "▼";
-            if (label) label.textContent = "Show full question";
-          }
-        });
-      }
+  return card;
+}
+
+function createWritingReviewCard(q, isCompleted) {
+  const card = document.createElement("div");
+  card.className = "review-card";
+  card.id = `review-card-${q.questionNumber}`;
+
+  const conf = TYPE_CONFIG[q.questionType] || {
+    badge: q.questionType,
+    instructions: "Respond to the question prompt."
+  };
+
+  const promptText = q.promptText || "";
+  const isLongPrompt = promptText.length > 85 || Boolean(q.contextData) || Boolean(q.imageUrl);
+  const previewText = isLongPrompt && promptText.length > 85
+    ? promptText.substring(0, 85) + "..."
+    : promptText;
+
+  const saved = writtenAnswers[q.questionNumber];
+  const answerText = saved ? saved.text : "";
+  const wordCount = countWords(answerText);
+
+  card.innerHTML = `
+    <div class="review-card-top">
+      <div class="review-card-title">
+        <span class="review-q-num">Question ${q.questionNumber}</span>
+        <span class="badge badge-part">${conf.badge}</span>
+      </div>
+      <div class="review-card-meta">
+        <span class="review-duration-tag" id="word-tag-${q.questionNumber}">${wordCount} word${wordCount !== 1 ? "s" : ""}</span>
+      </div>
+    </div>
+
+    <div class="review-prompt-box">
+      <div class="review-prompt-preview" id="prompt-prev-${q.questionNumber}">
+        ${escapeHtml(previewText)}
+      </div>
+
+      ${isLongPrompt ? `
+        <div class="review-prompt-full" id="prompt-full-${q.questionNumber}">
+          <div class="review-full-text">${escapeHtml(promptText)}</div>
+          ${q.contextData ? `<div class="review-context-block">${escapeHtml(q.contextData)}</div>` : ""}
+          ${q.imageUrl ? `<div class="review-image-block"><img src="${escapeHtml(q.imageUrl)}" alt="Question Visual" loading="lazy" /></div>` : ""}
+        </div>
+        <button type="button" class="review-expand-btn" data-q="${q.questionNumber}">
+          <span class="expand-icon">▼</span>
+          <span class="expand-text">Show full question</span>
+        </button>
+      ` : ""}
+    </div>
+
+    <div class="review-written-box" id="written-box-${q.questionNumber}">
+      <div class="review-written-header">
+        <span>Written Response:</span>
+        ${!isCompleted && cheatModeActive ? `<span style="color: var(--accent-record);">[Editing Enabled]</span>` : ""}
+      </div>
+      ${!isCompleted && cheatModeActive ? `
+        <textarea class="review-textarea-edit" id="edit-textarea-${q.questionNumber}" data-q="${q.questionNumber}">${escapeHtml(answerText)}</textarea>
+      ` : `
+        <div class="review-written-text">
+          ${answerText.trim() ? escapeHtml(answerText) : `<em style="color: var(--text-dim);">(No response written)</em>`}
+        </div>
+      `}
+    </div>
+  `;
+
+  if (!isCompleted && cheatModeActive) {
+    const editTextarea = card.querySelector(`#edit-textarea-${q.questionNumber}`);
+    if (editTextarea) {
+      editTextarea.addEventListener("input", (e) => {
+        const newText = e.target.value;
+        writtenAnswers[q.questionNumber] = {
+          text: newText,
+          durationSeconds: saved ? saved.durationSeconds : 0,
+          question: q
+        };
+        const wordTag = card.querySelector(`#word-tag-${q.questionNumber}`);
+        if (wordTag) {
+          const count = countWords(newText);
+          wordTag.textContent = `${count} word${count !== 1 ? "s" : ""}`;
+        }
+      });
     }
+  }
 
-    reviewList.appendChild(card);
-  });
+  if (isLongPrompt) {
+    attachPromptExpandHandler(card, q.questionNumber);
+  }
+
+  return card;
+}
+
+function attachPromptExpandHandler(card, qNumber) {
+  const expandBtn = card.querySelector(`.review-expand-btn`);
+  const fullBox = card.querySelector(`#prompt-full-${qNumber}`);
+  const prevBox = card.querySelector(`#prompt-prev-${qNumber}`);
+  if (expandBtn && fullBox && prevBox) {
+    const icon = expandBtn.querySelector(".expand-icon");
+    const label = expandBtn.querySelector(".expand-text");
+
+    expandBtn.addEventListener("click", () => {
+      const isExpanded = fullBox.classList.toggle("expanded");
+      if (isExpanded) {
+        prevBox.style.display = "none";
+        if (icon) icon.textContent = "▲";
+        if (label) label.textContent = "Collapse question";
+      } else {
+        prevBox.style.display = "block";
+        if (icon) icon.textContent = "▼";
+        if (label) label.textContent = "Show full question";
+      }
+    });
+  }
 }
 
 async function startRerecording(question, card) {
@@ -1337,7 +1512,73 @@ async function saveAllResponsesOrRecordings() {
 
   btnSubmitEvaluation.disabled = true;
 
-  if (isWritingTest) {
+  if (isCombinedTest) {
+    btnSubmitEvaluation.textContent = "Saving Recordings & Responses...";
+
+    try {
+      const spkList = sessionData.speakingQuestions || sessionData.questions.filter((q) => !["write_sentence", "respond_request", "write_opinion"].includes(q.questionType));
+      const wrtList = sessionData.writingQuestions || sessionData.questions.filter((q) => ["write_sentence", "respond_request", "write_opinion"].includes(q.questionType));
+
+      // 1. Upload audio recordings
+      const entries = Object.entries(questionBlobs);
+      const validEntries = entries.filter(([, item]) => item && item.blob);
+      const totalAudio = validEntries.length;
+      let audioSaved = 0;
+
+      for (const [qNumStr, item] of validEntries) {
+        audioSaved++;
+        btnSubmitEvaluation.textContent = `Saving Audio (${audioSaved}/${totalAudio})...`;
+        await uploadQuestionAudio(Number(qNumStr), item.blob, item.duration);
+      }
+
+      // 2. Upload writing responses
+      let writingSaved = 0;
+      for (const q of wrtList) {
+        writingSaved++;
+        btnSubmitEvaluation.textContent = `Saving Writing (${writingSaved}/${wrtList.length})...`;
+        const item = writtenAnswers[q.questionNumber];
+        const text = item ? item.text : "";
+        const duration = item ? item.durationSeconds : 0;
+        await uploadQuestionWriting(q.questionNumber, text, duration);
+      }
+
+      // 3. Mark session complete
+      btnSubmitEvaluation.textContent = "Completing Session...";
+      const res = await fetch(`/api/sessions/${sessionId}/submit`, {
+        method: "POST"
+      });
+
+      if (!res.ok) throw new Error("Failed to complete session on server");
+
+      if (sessionData) {
+        sessionData.status = "completed";
+        sessionData.completedAt = new Date().toISOString();
+      }
+
+      if (btnCheatMode) {
+        btnCheatMode.style.display = "none";
+      }
+
+      if (btnViewSubmitted) {
+        btnViewSubmitted.textContent = "Review Saved Responses & Audio";
+      }
+
+      const finishedTitle = document.getElementById("finished-title");
+      const finishedDesc = document.getElementById("finished-desc");
+      const finishedMeta = document.getElementById("finished-meta");
+      if (finishedTitle) finishedTitle.textContent = "Test Completed & Saved";
+      if (finishedDesc) finishedDesc.textContent = "All speaking audio recordings and written responses have been saved to your local storage folder.";
+      if (finishedMeta) finishedMeta.textContent = "Return to your chat and ask your AI agent to evaluate your Speaking & Writing performance.";
+
+      btnSubmitEvaluation.removeEventListener("click", saveAllResponsesOrRecordings);
+      viewReview.style.display = "none";
+      viewFinished.style.display = "block";
+    } catch (err) {
+      alert(`Save error: ${err.message}`);
+      btnSubmitEvaluation.disabled = false;
+      btnSubmitEvaluation.textContent = "Save All Submissions";
+    }
+  } else if (isWritingTest) {
     btnSubmitEvaluation.textContent = "Saving Written Responses...";
 
     try {

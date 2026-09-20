@@ -8,10 +8,12 @@ import {
   WritingQuestion,
   WritingExamPart,
   WritingQuestionSubmission,
+  SpeakingAndWritingSession,
   ExamSession,
   SessionStatus,
 } from "./types.js";
 import {
+  resolveSessionDir,
   resolveSessionRecordingsDir,
   resolveSessionWritingDir,
   loadConfig,
@@ -25,14 +27,15 @@ const sessions = new Map<string, ExamSession>();
 
 export function createSession(
   questions: SpeakingQuestion[],
-  overrideAudioDir?: string,
+  overrideStorageDir?: string,
   title?: string
 ): SpeakingSession {
   const id = `spk_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const recordingsDir = resolveSessionRecordingsDir(id, overrideAudioDir);
+  const sessionDir = resolveSessionDir(id, overrideStorageDir);
+  const recordingsDir = resolveSessionRecordingsDir(id, overrideStorageDir);
   const isDrill = questions.length < 11;
   const defaultTitle = isDrill
-    ? `Targeted Drill (${questions.length} Question${questions.length > 1 ? "s" : ""})`
+    ? `Targeted Speaking Drill (${questions.length} Question${questions.length > 1 ? "s" : ""})`
     : "Full Speaking Mock Test (11 Questions)";
 
   const session: SpeakingSession = {
@@ -42,6 +45,7 @@ export function createSession(
     isDrill,
     status: "pending",
     questions,
+    sessionDir,
     recordingsDir,
     submissions: {},
     createdAt: new Date().toISOString(),
@@ -133,7 +137,8 @@ export function createWritingSession(
   customPartTimes?: { part1_seconds?: number; part2_seconds?: number; part3_seconds?: number }
 ): WritingSession {
   const id = `wrt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-  const storageDir = resolveSessionWritingDir(id, overrideStorageDir);
+  const sessionDir = resolveSessionDir(id, overrideStorageDir);
+  const writingDir = resolveSessionWritingDir(id, overrideStorageDir);
   const isDrill = questions.length < 8;
   const parts = buildWritingParts(questions, customPartTimes);
 
@@ -153,9 +158,55 @@ export function createWritingSession(
     status: "pending",
     questions,
     parts,
-    storageDir,
-    recordingsDir: storageDir, // Alias for backwards-compatibility
+    sessionDir,
+    writingDir,
+    storageDir: sessionDir,
+    recordingsDir: sessionDir, // Backwards-compatibility alias
     submissions: {},
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  sessions.set(id, session);
+  persistSessionMetadata(session);
+  return session;
+}
+
+export function createSpeakingAndWritingSession(
+  speakingQuestions: SpeakingQuestion[],
+  writingQuestions: WritingQuestion[],
+  overrideStorageDir?: string,
+  title?: string,
+  customPartTimes?: { part1_seconds?: number; part2_seconds?: number; part3_seconds?: number }
+): SpeakingAndWritingSession {
+  const id = `toeic_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const sessionDir = resolveSessionDir(id, overrideStorageDir);
+  const recordingsDir = resolveSessionRecordingsDir(id, overrideStorageDir);
+  const writingDir = resolveSessionWritingDir(id, overrideStorageDir);
+  const isDrill = speakingQuestions.length < 11 || writingQuestions.length < 8;
+  const parts = buildWritingParts(writingQuestions, customPartTimes);
+
+  const defaultTitle = isDrill
+    ? `Targeted Speaking & Writing Drill (${speakingQuestions.length} Speaking, ${writingQuestions.length} Writing)`
+    : "Full TOEIC Speaking & Writing Mock Test";
+
+  const session: SpeakingAndWritingSession = {
+    id,
+    testType: "speaking_and_writing",
+    title: title || defaultTitle,
+    isDrill,
+    status: "pending",
+    questions: [...speakingQuestions, ...writingQuestions],
+    speakingQuestions,
+    writingQuestions,
+    writingParts: parts,
+    parts,
+    sessionDir,
+    recordingsDir,
+    writingDir,
+    storageDir: sessionDir,
+    submissions: {},
+    writingSubmissions: {},
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -170,7 +221,7 @@ export function getSession(id: string): ExamSession | null {
     return sessions.get(id)!;
   }
 
-  // Try locating on disk in configured audioStorageDir
+  // Try locating on disk in configured sessionStorageDir or legacy dirs
   const diskSession = findSessionOnDisk(id);
   if (diskSession) {
     sessions.set(id, diskSession);
@@ -198,32 +249,35 @@ export function updateSessionStatus(id: string, status: SessionStatus): ExamSess
 export function recordSubmission(
   sessionId: string,
   submission: QuestionSubmission
-): SpeakingSession | null {
+): ExamSession | null {
   const session = getSession(sessionId);
-  if (!session || session.id.startsWith("wrt_")) return null;
+  if (!session) return null;
 
-  const spkSession = session as SpeakingSession;
-  spkSession.status = "in_progress";
-  spkSession.submissions[submission.questionNumber] = submission;
-  spkSession.updatedAt = new Date().toISOString();
+  session.status = "in_progress";
+  (session as any).submissions = (session as any).submissions || {};
+  (session as any).submissions[submission.questionNumber] = submission;
+  session.updatedAt = new Date().toISOString();
 
-  sessions.set(sessionId, spkSession);
-  persistSessionMetadata(spkSession);
-  return spkSession;
+  sessions.set(sessionId, session);
+  persistSessionMetadata(session);
+  return session;
 }
 
 export function recordWritingSubmission(
   sessionId: string,
   submission: WritingQuestionSubmission
-): WritingSession | null {
+): ExamSession | null {
   const session = getSession(sessionId);
-  if (!session || !session.id.startsWith("wrt_")) return null;
+  if (!session) return null;
 
-  const wrtSession = session as WritingSession;
-  wrtSession.status = "in_progress";
+  session.status = "in_progress";
 
-  if (!fs.existsSync(wrtSession.recordingsDir)) {
-    fs.mkdirSync(wrtSession.recordingsDir, { recursive: true });
+  const writingDir =
+    (session as any).writingDir ||
+    path.join((session as any).sessionDir || (session as any).storageDir || session.recordingsDir, "writing");
+
+  if (!fs.existsSync(writingDir)) {
+    fs.mkdirSync(writingDir, { recursive: true });
   }
 
   // Ensure written text file is saved on disk
@@ -235,20 +289,33 @@ export function recordWritingSubmission(
     }
   }
 
-  wrtSession.submissions[submission.questionNumber] = submission;
-  wrtSession.updatedAt = new Date().toISOString();
+  if (session.testType === "speaking_and_writing") {
+    const swSession = session as SpeakingAndWritingSession;
+    swSession.writingSubmissions = swSession.writingSubmissions || {};
+    swSession.writingSubmissions[submission.questionNumber] = submission;
+  } else {
+    const wrtSession = session as WritingSession;
+    wrtSession.submissions[submission.questionNumber] = submission;
+  }
 
-  sessions.set(sessionId, wrtSession);
-  persistSessionMetadata(wrtSession);
-  return wrtSession;
+  session.updatedAt = new Date().toISOString();
+
+  sessions.set(sessionId, session);
+  persistSessionMetadata(session);
+  return session;
 }
 
 export function persistSessionMetadata(session: ExamSession): void {
   try {
-    if (!fs.existsSync(session.recordingsDir)) {
-      fs.mkdirSync(session.recordingsDir, { recursive: true });
+    const sessionDir =
+      session.sessionDir ||
+      (session as any).storageDir ||
+      session.recordingsDir;
+
+    if (!fs.existsSync(sessionDir)) {
+      fs.mkdirSync(sessionDir, { recursive: true });
     }
-    const metaPath = path.join(session.recordingsDir, METADATA_FILE_NAME);
+    const metaPath = path.join(sessionDir, METADATA_FILE_NAME);
     fs.writeFileSync(metaPath, JSON.stringify(session, null, 2), "utf-8");
   } catch (err) {
     console.error(`[SessionStore] Error writing session metadata for ${session.id}:`, err);
@@ -257,12 +324,13 @@ export function persistSessionMetadata(session: ExamSession): void {
 
 export function findSessionOnDisk(id: string): ExamSession | null {
   const config = loadConfig();
-  const searchDirs = id.startsWith("wrt_")
-    ? [config.writingStorageDir, config.audioStorageDir]
-    : [config.audioStorageDir, config.writingStorageDir];
+  const searchDirs = [
+    config.sessionStorageDir || "./sessions",
+    config.writingStorageDir,
+    config.audioStorageDir,
+  ].filter(Boolean) as string[];
 
   for (const rawDir of searchDirs) {
-    if (!rawDir) continue;
     const baseDir = path.isAbsolute(rawDir)
       ? rawDir
       : path.resolve(getProjectRoot(), rawDir);
@@ -286,4 +354,3 @@ export function findSessionOnDisk(id: string): ExamSession | null {
 export function getAllSessions(): ExamSession[] {
   return Array.from(sessions.values());
 }
-

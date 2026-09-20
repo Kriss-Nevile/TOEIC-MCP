@@ -30,7 +30,8 @@ Authentic TOEIC Speaking & Writing preparation requires responses delivered unde
 | :--- | :--- |
 | `launch_speaking_test` | Initializes a speaking examination session and opens the local browser simulator. Supports complete mock exams (Q1–11) or targeted skill drills. Returns session metadata and local interface URL. |
 | `launch_writing_test` | Initializes a writing examination session and opens the local browser simulator. Supports complete mock exams (Q1–8) or targeted skill drills (picture sentence writing, email response, opinion essay). Returns session metadata and local interface URL. |
-| `get_test_submission` | Inspects the session storage directory and returns submission status, candidate audio file paths or written text responses, word counts, and question metadata for model evaluation. |
+| `launch_speaking_and_writing_test` | Initializes a combined examination session running Speaking first, followed by Writing, with automatic section transition. Saves recordings to `<session>/recordings/` and written responses to `<session>/writing/`. |
+| `get_test_submission` | Inspects the session storage directory and returns submission status, candidate audio file paths, written text responses, word counts, and question metadata for model evaluation. |
 
 ### Prompts
 
@@ -51,25 +52,40 @@ Authentic TOEIC Speaking & Writing preparation requires responses delivered unde
 
 ---
 
-## Configuration
+## Configuration & Storage Layout
 
 Server behavior and default paths are configured via `toeic.config.json` in the root directory:
 
 ```json
 {
+  "sessionStorageDir": "./sessions",
   "audioStorageDir": "./recordings",
+  "writingStorageDir": "./writings",
   "webServerPort": 3210,
   "autoOpenBrowser": true,
   "httpTransportPort": 3001
 }
 ```
 
-- **`audioStorageDir`**: Target directory where session audio files and metadata are written.
+### Storage Organization Structure (`session -> modality`)
+
+Test sessions are organized into self-contained session folders under `sessionStorageDir` (`./sessions`):
+
+```
+sessions/
+└── <session_id>/
+    ├── session_metadata.json    # Complete session status, questions, and timing data
+    ├── recordings/              # Audio recordings (q1.wav, q2.wav, ...)
+    └── writing/                 # Text responses (q1.txt, q2.txt, ...)
+```
+
+- **`sessionStorageDir`**: Target directory where all test sessions are organized hierarchically (`./sessions/<session_id>/`).
+- **`audioStorageDir`** & **`writingStorageDir`**: Legacy fallback directories supported for backwards compatibility.
 - **`webServerPort`**: Port assigned to the local web simulator.
 - **`autoOpenBrowser`**: Controls whether the default web browser is launched automatically upon session creation.
 - **`httpTransportPort`**: Default listening port when the server is executed in HTTP mode.
 
-> **Workspace Tip**: When practicing and running mock tests with agents, it is recommended to operate within a dedicated training directory or configure `audioStorageDir` with an absolute path. This ensures all session audio tracks and metadata files generated across drills remain cleanly centralized and isolated in a designated folder rather than accumulating in general project workspaces.
+> **Workspace Tip**: Operating within a unified `sessionStorageDir` ensures all recordings and written essays for any given exam or drill are neatly bundled together within a single session folder.
 
 ---
 

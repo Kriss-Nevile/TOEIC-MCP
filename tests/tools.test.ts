@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { handleLaunchSpeakingTest } from "../src/tools/launch-speaking-test.js";
 import { handleLaunchWritingTest } from "../src/tools/launch-writing-test.js";
+import { handleLaunchSpeakingAndWritingTest } from "../src/tools/launch-speaking-and-writing-test.js";
 import { handleGetTestSubmission } from "../src/tools/get-test-submission.js";
 import { stopWebServer } from "../src/web/server.js";
 import { SpeakingQuestion, WritingQuestion } from "../src/domain/types.js";
@@ -142,8 +143,8 @@ test("handleLaunchWritingTest creates writing session and returns launch metadat
   assert.ok(data.web_url.includes(data.session_id));
   assert.equal(data.questions_count, 2);
   assert.ok(fs.existsSync(data.destination_folder));
-  // Must save into writings storage directory, NOT recordings!
-  assert.ok(data.destination_folder.includes("writings"));
+  // Must save into sessions storage directory (session -> writing), NOT recordings!
+  assert.ok(data.destination_folder.includes("sessions") || data.destination_folder.includes("writing"));
   assert.ok(!data.destination_folder.includes("recordings"));
 
   // Verify parts breakdown
@@ -164,7 +165,7 @@ test("handleLaunchWritingTest creates writing session and returns launch metadat
   assert.equal(subData.total_questions, 2);
   assert.equal(subData.submissions_count, 0);
   assert.equal(subData.is_ready_for_evaluation, false);
-  assert.ok(subData.destination_folder.includes("writings"));
+  assert.ok(subData.destination_folder.includes("sessions") || subData.destination_folder.includes("writing"));
 
   // Clean up
   fs.rmSync(data.destination_folder, { recursive: true, force: true });
@@ -189,7 +190,7 @@ test("handleLaunchWritingTest supports targeted drill filtering and custom part_
   assert.equal(data.mode, "targeted_drill");
   assert.deepEqual(data.practiced_questions, [1]);
   assert.equal(data.questions_count, 1);
-  assert.ok(data.destination_folder.includes("writings"));
+  assert.ok(data.destination_folder.includes("sessions") || data.destination_folder.includes("writing"));
 
   // Check that custom part time was applied
   assert.equal(data.parts_breakdown.length, 1);
@@ -282,6 +283,65 @@ test("buildWritingParts scales timers proportionally for targeted drills", () =>
   // Custom part time override
   const customParts = buildWritingParts(drillQuestions, { part1_seconds: 400 });
   assert.equal(customParts[0].timeSeconds, 400);
+});
+
+test("handleLaunchSpeakingAndWritingTest launches combined session with structured folders", async () => {
+  const speakingQ: SpeakingQuestion[] = [
+    {
+      questionNumber: 1,
+      questionType: "read_aloud",
+      promptText: "Please read this announcement clearly.",
+      prepTimeSeconds: 5,
+      responseTimeSeconds: 5,
+    },
+  ];
+
+  const writingQ: WritingQuestion[] = [
+    {
+      questionNumber: 1,
+      questionType: "write_sentence",
+      promptText: "Write a sentence using the given words.",
+      prepTimeSeconds: 0,
+      responseTimeSeconds: 60,
+    },
+  ];
+
+  const res = await handleLaunchSpeakingAndWritingTest({
+    speaking_questions: speakingQ,
+    writing_questions: writingQ,
+    session_title: "Full Speaking & Writing Combined Mock",
+    auto_open_browser: false,
+  });
+
+  assert.equal(res.content.length, 1);
+  const data = JSON.parse(res.content[0].text);
+
+  assert.equal(data.status, "launched");
+  assert.equal(data.test_type, "speaking_and_writing");
+  assert.ok(data.session_id.startsWith("toeic_"));
+  assert.ok(fs.existsSync(data.session_folder));
+  assert.ok(fs.existsSync(data.recordings_folder));
+  assert.ok(fs.existsSync(data.writing_folder));
+  assert.equal(data.speaking_questions_count, 1);
+  assert.equal(data.writing_questions_count, 1);
+
+  // Check get_test_submission returns both speaking & writing details
+  const subRes = await handleGetTestSubmission({
+    session_id: data.session_id,
+  });
+
+  assert.equal(subRes.content.length, 1);
+  const subData = JSON.parse(subRes.content[0].text);
+  assert.equal(subData.session_id, data.session_id);
+  assert.equal(subData.test_type, "speaking_and_writing");
+  assert.equal(subData.total_questions, 2);
+  assert.equal(subData.speaking_questions_count, 1);
+  assert.equal(subData.writing_questions_count, 1);
+  assert.equal(subData.is_ready_for_evaluation, false);
+
+  // Clean up
+  fs.rmSync(data.session_folder, { recursive: true, force: true });
+  await stopWebServer();
 });
 
 after(async () => {

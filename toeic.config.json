@@ -1,6 +1,5 @@
 {
-  "audioStorageDir": "./recordings",
-  "writingStorageDir": "./writings",
+  "sessionStorageDir": "./sessions",
   "webServerPort": 3210,
   "autoOpenBrowser": true,
   "httpTransportPort": 3001

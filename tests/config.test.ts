@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   loadConfig,
+  resolveSessionDir,
   resolveSessionRecordingsDir,
   resolveSessionWritingDir,
   getProjectRoot,
@@ -11,6 +12,7 @@ import {
 
 test("loadConfig should return valid default configuration", () => {
   const config = loadConfig();
+  assert.ok(typeof config.sessionStorageDir === "string");
   assert.ok(typeof config.audioStorageDir === "string");
   assert.ok(typeof config.writingStorageDir === "string");
   assert.ok(typeof config.webServerPort === "number");
@@ -18,7 +20,28 @@ test("loadConfig should return valid default configuration", () => {
   assert.ok(typeof config.httpTransportPort === "number");
 });
 
-test("resolveSessionRecordingsDir should resolve relative and custom paths", () => {
+test("resolveSessionDir should resolve to sessions/<sessionId> and respect overrides", () => {
+  const sessionId = "test_session_root_123";
+  const resolved = resolveSessionDir(sessionId);
+
+  assert.ok(path.isAbsolute(resolved));
+  assert.ok(resolved.includes(sessionId));
+  assert.ok(resolved.includes("sessions"));
+  assert.ok(fs.existsSync(resolved));
+
+  // Custom override
+  const customOverride = path.join(getProjectRoot(), "scratch", "custom_sessions");
+  const resolvedCustom = resolveSessionDir(sessionId, customOverride);
+
+  assert.ok(resolvedCustom.includes("custom_sessions"));
+  assert.ok(fs.existsSync(resolvedCustom));
+
+  // Clean up
+  fs.rmSync(resolved, { recursive: true, force: true });
+  fs.rmSync(resolvedCustom, { recursive: true, force: true });
+});
+
+test("resolveSessionRecordingsDir should resolve relative and custom paths to recordings subfolder", () => {
   const sessionId = "test_session_123";
   const resolved = resolveSessionRecordingsDir(sessionId);
 
@@ -35,17 +58,17 @@ test("resolveSessionRecordingsDir should resolve relative and custom paths", () 
   assert.ok(fs.existsSync(resolvedCustom));
 
   // Clean up test directories
-  fs.rmSync(resolved, { recursive: true, force: true });
+  fs.rmSync(path.dirname(resolved), { recursive: true, force: true });
   fs.rmSync(resolvedCustom, { recursive: true, force: true });
 });
 
-test("resolveSessionWritingDir should resolve to writings folder and respect overrides", () => {
+test("resolveSessionWritingDir should resolve to writing subfolder and respect overrides", () => {
   const sessionId = "wrt_test_session_456";
   const resolved = resolveSessionWritingDir(sessionId);
 
   assert.ok(path.isAbsolute(resolved));
   assert.ok(resolved.includes(sessionId));
-  assert.ok(resolved.includes("writings"));
+  assert.ok(resolved.includes("writing"));
   assert.ok(fs.existsSync(resolved));
 
   // Test custom override
@@ -56,7 +79,7 @@ test("resolveSessionWritingDir should resolve to writings folder and respect ove
   assert.ok(fs.existsSync(resolvedCustom));
 
   // Clean up test directories
-  fs.rmSync(resolved, { recursive: true, force: true });
+  fs.rmSync(path.dirname(resolved), { recursive: true, force: true });
   fs.rmSync(resolvedCustom, { recursive: true, force: true });
 });
 

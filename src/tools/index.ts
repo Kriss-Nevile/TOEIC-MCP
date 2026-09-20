@@ -8,6 +8,10 @@ import {
   handleLaunchWritingTest,
 } from "./launch-writing-test.js";
 import {
+  LaunchSpeakingAndWritingTestInputSchema,
+  handleLaunchSpeakingAndWritingTest,
+} from "./launch-speaking-and-writing-test.js";
+import {
   GetTestSubmissionInputSchema,
   handleGetTestSubmission,
 } from "./get-test-submission.js";
@@ -57,10 +61,32 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  // Tool 3: get_test_submission
+  // Tool 3: launch_speaking_and_writing_test
+  server.tool(
+    "launch_speaking_and_writing_test",
+    "Launches a local browser app simulating a combined TOEIC Speaking & Writing examination or targeted drill with custom questions provided by the model. Candidates take the Speaking section first, followed by the Writing section. Audio recordings are saved in <session_folder>/recordings/ and written responses in <session_folder>/writing/.",
+    LaunchSpeakingAndWritingTestInputSchema.shape,
+    async (args) => {
+      try {
+        return await handleLaunchSpeakingAndWritingTest(args as any);
+      } catch (error: any) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text" as const,
+              text: `Failed to launch speaking and writing test: ${error.message || String(error)}`,
+            },
+          ],
+        };
+      }
+    }
+  );
+
+  // Tool 4: get_test_submission
   server.tool(
     "get_test_submission",
-    "Checks and retrieves the recorded audio voice samples or written text responses and completion status for a TOEIC Speaking or Writing test session from the configured destination folder.",
+    "Checks and retrieves the recorded audio voice samples and/or written text responses and completion status for a TOEIC Speaking, Writing, or combined Speaking & Writing test session from the configured destination folder.",
     GetTestSubmissionInputSchema.shape,
     async (args) => {
       try {

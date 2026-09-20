@@ -2,14 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 
 export interface ToeicConfig {
-  audioStorageDir: string;
-  writingStorageDir: string;
+  sessionStorageDir: string;
+  audioStorageDir?: string;
+  writingStorageDir?: string;
   webServerPort: number;
   autoOpenBrowser: boolean;
   httpTransportPort: number;
 }
 
 const DEFAULT_CONFIG: ToeicConfig = {
+  sessionStorageDir: "./sessions",
   audioStorageDir: "./recordings",
   writingStorageDir: "./writings",
   webServerPort: 3210,
@@ -34,6 +36,7 @@ export function loadConfig(): ToeicConfig {
       const raw = fs.readFileSync(filePath, "utf-8");
       const parsed = JSON.parse(raw);
       return {
+        sessionStorageDir: parsed.sessionStorageDir || DEFAULT_CONFIG.sessionStorageDir,
         audioStorageDir: parsed.audioStorageDir || DEFAULT_CONFIG.audioStorageDir,
         writingStorageDir: parsed.writingStorageDir || DEFAULT_CONFIG.writingStorageDir,
         webServerPort: Number(parsed.webServerPort) || DEFAULT_CONFIG.webServerPort,
@@ -56,16 +59,16 @@ export function saveConfig(updates: Partial<ToeicConfig>): ToeicConfig {
 }
 
 /**
- * Resolves absolute directory for saving session recordings.
- * If overrideDir is provided, that takes precedence.
- * Otherwise uses configured audioStorageDir.
+ * Resolves absolute root directory for a session: <sessionStorageDir>/<sessionId>
+ * If overrideDir is provided, that base directory takes precedence.
  */
-export function resolveSessionRecordingsDir(sessionId: string, overrideDir?: string): string {
-  const baseDir = overrideDir || loadConfig().audioStorageDir;
+export function resolveSessionDir(sessionId: string, overrideDir?: string): string {
+  const config = loadConfig();
+  const baseDir = overrideDir || config.sessionStorageDir || "./sessions";
   const resolvedBase = path.isAbsolute(baseDir)
     ? baseDir
     : path.resolve(getProjectRoot(), baseDir);
-  
+
   const sessionDir = path.join(resolvedBase, sessionId);
   if (!fs.existsSync(sessionDir)) {
     fs.mkdirSync(sessionDir, { recursive: true });
@@ -74,20 +77,27 @@ export function resolveSessionRecordingsDir(sessionId: string, overrideDir?: str
 }
 
 /**
- * Resolves absolute directory for saving session writing responses.
- * If overrideDir is provided, that takes precedence.
- * Otherwise uses configured writingStorageDir.
+ * Resolves absolute directory for saving session recordings:
+ * <sessionDir>/recordings
  */
-export function resolveSessionWritingDir(sessionId: string, overrideDir?: string): string {
-  const baseDir = overrideDir || loadConfig().writingStorageDir;
-  const resolvedBase = path.isAbsolute(baseDir)
-    ? baseDir
-    : path.resolve(getProjectRoot(), baseDir);
-  
-  const sessionDir = path.join(resolvedBase, sessionId);
-  if (!fs.existsSync(sessionDir)) {
-    fs.mkdirSync(sessionDir, { recursive: true });
+export function resolveSessionRecordingsDir(sessionId: string, overrideDir?: string): string {
+  const sessionDir = resolveSessionDir(sessionId, overrideDir);
+  const recordingsDir = path.join(sessionDir, "recordings");
+  if (!fs.existsSync(recordingsDir)) {
+    fs.mkdirSync(recordingsDir, { recursive: true });
   }
-  return sessionDir;
+  return recordingsDir;
 }
 
+/**
+ * Resolves absolute directory for saving session writing responses:
+ * <sessionDir>/writing
+ */
+export function resolveSessionWritingDir(sessionId: string, overrideDir?: string): string {
+  const sessionDir = resolveSessionDir(sessionId, overrideDir);
+  const writingDir = path.join(sessionDir, "writing");
+  if (!fs.existsSync(writingDir)) {
+    fs.mkdirSync(writingDir, { recursive: true });
+  }
+  return writingDir;
+}

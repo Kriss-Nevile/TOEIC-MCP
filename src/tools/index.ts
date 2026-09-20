@@ -16,7 +16,7 @@ export function registerTools(server: McpServer): void {
   // Tool 1: launch_speaking_test
   server.tool(
     "launch_speaking_test",
-    "Launches a local browser app simulating a TOEIC Speaking test with custom questions provided by the model. Saves audio recordings to the configured destination folder.",
+    "Launches a local browser app simulating a TOEIC Speaking test with custom questions provided by the model. For picture questions (Q3-4), real internet photographs must be prioritized over raw SVGs. Saves audio recordings to the configured destination folder.",
     LaunchSpeakingTestInputSchema.shape,
     async (args) => {
       try {
@@ -38,7 +38,7 @@ export function registerTools(server: McpServer): void {
   // Tool 2: launch_writing_test
   server.tool(
     "launch_writing_test",
-    "Launches a local browser app simulating a TOEIC Writing test with custom questions provided by the model. Saves written text responses to the configured destination folder.",
+    "Launches a local browser app simulating a TOEIC Writing test with custom questions provided by the model. For picture sentence questions (Q1-5), real internet photographs must be prioritized over raw SVGs. Saves written text responses to the configured destination folder.",
     LaunchWritingTestInputSchema.shape,
     async (args) => {
       try {

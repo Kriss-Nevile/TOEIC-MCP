@@ -10,7 +10,9 @@ export const LaunchSpeakingTestInputSchema = z.object({
     .array(SpeakingQuestionSchema)
     .min(1)
     .max(11)
-    .describe("Array of TOEIC Speaking questions drafted by the model (1 to 11 questions)."),
+    .describe(
+      "Array of TOEIC Speaking questions drafted by the model (1 to 11 questions). For picture-based questions (Q3-4), search the internet for authentic, decent workplace photographs first (consult resource 'toeic://guides/visual-questions'); raw inline SVGs are only allowed as a last-resort fallback when no decent online picture is found."
+    ),
   selected_question_numbers: z
     .array(z.number().int().min(1).max(11))
     .optional()

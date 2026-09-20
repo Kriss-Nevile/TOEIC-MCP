@@ -7,6 +7,7 @@ dist/
 
 # User audio recordings & sessions data
 recordings/
+writings/
 scratch/
 
 # Logs

@@ -42,6 +42,12 @@ Authentic TOEIC Speaking & Writing preparation requires responses delivered unde
 | `diagnose_weaknesses` | Diagnostic framework guiding the model to synthesize candidate error patterns into a section-by-section vulnerability matrix and a structured study roadmap. |
 | `generate_targeted_lesson` | Remediation template instructing the model to construct a focused lesson, analyze common pitfalls, and prepare customized practice drills. |
 
+### Resources
+
+| Resource URI | Description |
+| :--- | :--- |
+| `toeic://guides/visual-questions` | Image sourcing reference and curated high-availability photograph directory for visual test items (Speaking Q3–4 and Writing Q1–5). |
+
 
 ---
 

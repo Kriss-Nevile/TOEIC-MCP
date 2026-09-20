@@ -14,7 +14,12 @@ export const SpeakingQuestionSchema = z.object({
   questionNumber: z.number().int().min(1).max(11).describe("Question number in the test (1 to 11)"),
   questionType: QuestionTypeSchema.describe("TOEIC Speaking part/type"),
   promptText: z.string().describe("Main text prompt, instructions, or reading passage"),
-  imageUrl: z.string().optional().describe("Optional URL or base64 data URI of picture (Q3-4) or schedule diagram"),
+  imageUrl: z
+    .string()
+    .optional()
+    .describe(
+      "Direct HTTPS URL to an authentic photograph from the internet (e.g. Unsplash, Wikimedia Commons) depicting realistic business/workplace scenes (Q3-4) or schedule diagram (Q8-10). Search the internet for a decent photo first (see resource 'toeic://guides/visual-questions'); inline SVG data URIs are ONLY permitted as a last-resort fallback when no decent picture can be found online."
+    ),
   contextData: z.string().optional().describe("Optional schedule, itinerary, agenda, or background text (especially Q8-10)"),
   prepTimeSeconds: z.number().int().min(0).max(120).default(45).describe("Preparation countdown in seconds"),
   responseTimeSeconds: z.number().int().min(5).max(120).default(45).describe("Speaking response recording countdown in seconds"),
@@ -62,7 +67,12 @@ export const WritingQuestionSchema = z.object({
   questionNumber: z.number().int().min(1).max(8).describe("Question number in the test (1 to 8)"),
   questionType: WritingQuestionTypeSchema.describe("TOEIC Writing part/type"),
   promptText: z.string().describe("Main instructions, scenario, or essay prompt"),
-  imageUrl: z.string().optional().describe("Optional URL or base64 data URI of picture (Questions 1-5)"),
+  imageUrl: z
+    .string()
+    .optional()
+    .describe(
+      "Direct HTTPS URL to an authentic photograph from the internet (e.g. Unsplash, Wikimedia Commons) depicting realistic business/workplace scenes for Questions 1-5. Search the internet for a decent photo first (see resource 'toeic://guides/visual-questions'); inline SVG data URIs are ONLY permitted as a last-resort fallback when no decent picture can be found online."
+    ),
   contextData: z.string().optional().describe("Optional required keywords/phrases (Q1-5) or incoming email/memo text (Q6-7)"),
   prepTimeSeconds: z.number().int().min(0).max(300).default(0).describe("Optional preparation countdown in seconds"),
   responseTimeSeconds: z.number().int().min(10).max(3600).default(480).describe("Writing countdown in seconds (e.g. 120s for Q1-5, 600s for Q6-7, 1800s for Q8)"),
@@ -85,6 +95,16 @@ export interface WritingQuestionSubmission {
   uploadedAt: string;
 }
 
+export interface WritingExamPart {
+  partNumber: number; // 1, 2, or 3
+  partType: WritingQuestionType;
+  title: string;
+  taskDescription: string;
+  directions: string[];
+  timeSeconds: number; // Total time allocated for this entire Part in seconds
+  questions: WritingQuestion[];
+}
+
 export interface WritingSession {
   id: string;
   testType: "writing";
@@ -92,7 +112,9 @@ export interface WritingSession {
   isDrill: boolean;
   status: SessionStatus;
   questions: WritingQuestion[];
-  recordingsDir: string; // Directory where text responses and metadata are saved
+  parts?: WritingExamPart[];
+  storageDir: string; // Directory where text responses and metadata are saved
+  recordingsDir: string; // Kept for backwards-compatibility (points to storageDir)
   submissions: Record<number, WritingQuestionSubmission>;
   createdAt: string;
   updatedAt: string;

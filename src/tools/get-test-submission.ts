@@ -19,22 +19,33 @@ export type GetTestSubmissionInput = z.infer<typeof GetTestSubmissionInputSchema
 export async function handleGetTestSubmission(args: GetTestSubmissionInput) {
   let session = getSession(args.session_id);
 
-  // If not found in memory, also search custom destination folder or configured audioStorageDir
+  const isWritingId = args.session_id.startsWith("wrt_");
+
+  // If not found in memory, also search custom destination folder or configured storage dirs
   if (!session) {
     const config = loadConfig();
-    const searchBase = args.destination_folder || config.audioStorageDir;
-    const resolvedBase = path.isAbsolute(searchBase)
-      ? searchBase
-      : path.resolve(getProjectRoot(), searchBase);
+    const searchDirs = args.destination_folder
+      ? [args.destination_folder]
+      : isWritingId
+      ? [config.writingStorageDir, config.audioStorageDir]
+      : [config.audioStorageDir, config.writingStorageDir];
 
-    const sessionDir = path.join(resolvedBase, args.session_id);
-    const metaPath = path.join(sessionDir, "session_metadata.json");
+    for (const rawBase of searchDirs) {
+      if (!rawBase) continue;
+      const resolvedBase = path.isAbsolute(rawBase)
+        ? rawBase
+        : path.resolve(getProjectRoot(), rawBase);
 
-    if (fs.existsSync(metaPath)) {
-      try {
-        session = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-      } catch (err) {
-        console.error(`[GetTestSubmission] Failed parsing metadata at ${metaPath}:`, err);
+      const sessionDir = path.join(resolvedBase, args.session_id);
+      const metaPath = path.join(sessionDir, "session_metadata.json");
+
+      if (fs.existsSync(metaPath)) {
+        try {
+          session = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
+          break;
+        } catch (err) {
+          console.error(`[GetTestSubmission] Failed parsing metadata at ${metaPath}:`, err);
+        }
       }
     }
   }
@@ -45,7 +56,7 @@ export async function handleGetTestSubmission(args: GetTestSubmissionInput) {
       content: [
         {
           type: "text" as const,
-          text: `Session not found: '${args.session_id}'. Ensure the ID is correct and check the audioStorageDir in toeic.config.json.`,
+          text: `Session not found: '${args.session_id}'. Ensure the ID is correct and check the storage folder (${isWritingId ? "writingStorageDir" : "audioStorageDir"}) in toeic.config.json.`,
         },
       ],
     };
@@ -97,7 +108,7 @@ export async function handleGetTestSubmission(args: GetTestSubmissionInput) {
               is_ready_for_evaluation: isReady,
               total_questions: session.questions.length,
               submissions_count: submissionsList.length,
-              destination_folder: session.recordingsDir,
+              destination_folder: (session as any).storageDir || session.recordingsDir,
               submissions: submissionsList,
               questions_reference: session.questions,
               next_step: isReady

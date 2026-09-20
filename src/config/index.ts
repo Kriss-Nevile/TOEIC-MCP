@@ -3,6 +3,7 @@ import path from "node:path";
 
 export interface ToeicConfig {
   audioStorageDir: string;
+  writingStorageDir: string;
   webServerPort: number;
   autoOpenBrowser: boolean;
   httpTransportPort: number;
@@ -10,6 +11,7 @@ export interface ToeicConfig {
 
 const DEFAULT_CONFIG: ToeicConfig = {
   audioStorageDir: "./recordings",
+  writingStorageDir: "./writings",
   webServerPort: 3210,
   autoOpenBrowser: true,
   httpTransportPort: 3001,
@@ -33,6 +35,7 @@ export function loadConfig(): ToeicConfig {
       const parsed = JSON.parse(raw);
       return {
         audioStorageDir: parsed.audioStorageDir || DEFAULT_CONFIG.audioStorageDir,
+        writingStorageDir: parsed.writingStorageDir || DEFAULT_CONFIG.writingStorageDir,
         webServerPort: Number(parsed.webServerPort) || DEFAULT_CONFIG.webServerPort,
         autoOpenBrowser: parsed.autoOpenBrowser !== undefined ? Boolean(parsed.autoOpenBrowser) : DEFAULT_CONFIG.autoOpenBrowser,
         httpTransportPort: Number(parsed.httpTransportPort) || DEFAULT_CONFIG.httpTransportPort,
@@ -69,3 +72,22 @@ export function resolveSessionRecordingsDir(sessionId: string, overrideDir?: str
   }
   return sessionDir;
 }
+
+/**
+ * Resolves absolute directory for saving session writing responses.
+ * If overrideDir is provided, that takes precedence.
+ * Otherwise uses configured writingStorageDir.
+ */
+export function resolveSessionWritingDir(sessionId: string, overrideDir?: string): string {
+  const baseDir = overrideDir || loadConfig().writingStorageDir;
+  const resolvedBase = path.isAbsolute(baseDir)
+    ? baseDir
+    : path.resolve(getProjectRoot(), baseDir);
+  
+  const sessionDir = path.join(resolvedBase, sessionId);
+  if (!fs.existsSync(sessionDir)) {
+    fs.mkdirSync(sessionDir, { recursive: true });
+  }
+  return sessionDir;
+}
+

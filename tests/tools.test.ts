@@ -6,6 +6,7 @@ import { handleLaunchWritingTest } from "../src/tools/launch-writing-test.js";
 import { handleGetTestSubmission } from "../src/tools/get-test-submission.js";
 import { stopWebServer } from "../src/web/server.js";
 import { SpeakingQuestion, WritingQuestion } from "../src/domain/types.js";
+import { buildWritingParts } from "../src/domain/session-store.js";
 
 
 const sampleQuestions: SpeakingQuestion[] = [
@@ -126,7 +127,7 @@ const sampleWritingQuestions: WritingQuestion[] = [
 ];
 
 
-test("handleLaunchWritingTest creates writing session and returns launch metadata", async () => {
+test("handleLaunchWritingTest creates writing session and returns launch metadata in writings folder", async () => {
   const res = await handleLaunchWritingTest({
     questions: sampleWritingQuestions,
     auto_open_browser: false,
@@ -141,6 +142,15 @@ test("handleLaunchWritingTest creates writing session and returns launch metadat
   assert.ok(data.web_url.includes(data.session_id));
   assert.equal(data.questions_count, 2);
   assert.ok(fs.existsSync(data.destination_folder));
+  // Must save into writings storage directory, NOT recordings!
+  assert.ok(data.destination_folder.includes("writings"));
+  assert.ok(!data.destination_folder.includes("recordings"));
+
+  // Verify parts breakdown
+  assert.ok(Array.isArray(data.parts_breakdown));
+  assert.equal(data.parts_breakdown.length, 2); // Q1 (Part 1) and Q8 (Part 3)
+  assert.equal(data.parts_breakdown[0].part_number, 1);
+  assert.equal(data.parts_breakdown[1].part_number, 3);
 
   // Verify get_test_submission for newly created pending writing session
   const subRes = await handleGetTestSubmission({
@@ -154,17 +164,21 @@ test("handleLaunchWritingTest creates writing session and returns launch metadat
   assert.equal(subData.total_questions, 2);
   assert.equal(subData.submissions_count, 0);
   assert.equal(subData.is_ready_for_evaluation, false);
+  assert.ok(subData.destination_folder.includes("writings"));
 
   // Clean up
   fs.rmSync(data.destination_folder, { recursive: true, force: true });
   await stopWebServer();
 });
 
-test("handleLaunchWritingTest supports targeted drill filtering", async () => {
+test("handleLaunchWritingTest supports targeted drill filtering and custom part_times", async () => {
   const res = await handleLaunchWritingTest({
     questions: sampleWritingQuestions,
-    selected_question_numbers: [8],
-    session_title: "Q8 Essay Drill",
+    selected_question_numbers: [1],
+    session_title: "Part 1 Picture Sentence Drill",
+    part_times: {
+      part1_seconds: 300,
+    },
     auto_open_browser: false,
   });
 
@@ -173,12 +187,101 @@ test("handleLaunchWritingTest supports targeted drill filtering", async () => {
 
   assert.equal(data.status, "launched");
   assert.equal(data.mode, "targeted_drill");
-  assert.deepEqual(data.practiced_questions, [8]);
+  assert.deepEqual(data.practiced_questions, [1]);
   assert.equal(data.questions_count, 1);
+  assert.ok(data.destination_folder.includes("writings"));
+
+  // Check that custom part time was applied
+  assert.equal(data.parts_breakdown.length, 1);
+  assert.equal(data.parts_breakdown[0].part_number, 1);
+  assert.equal(data.parts_breakdown[0].allocated_time_seconds, 300);
 
   // Clean up
   fs.rmSync(data.destination_folder, { recursive: true, force: true });
   await stopWebServer();
+});
+
+test("Speaking and Writing question schemas accept valid direct HTTPS image URLs and fallback data URIs", () => {
+  const httpsImageUrl = "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1000&q=80";
+  const fallbackSvgUri = "data:image/svg+xml;utf8,<svg viewBox='0 0 800 500' xmlns='http://www.w3.org/2000/svg'><rect width='800' height='500' fill='%23f1f5f9'/></svg>";
+
+  const speakingWithHttps: SpeakingQuestion = {
+    questionNumber: 3,
+    questionType: "describe_picture",
+    promptText: "Describe the picture on your screen in detail.",
+    imageUrl: httpsImageUrl,
+    prepTimeSeconds: 45,
+    responseTimeSeconds: 45,
+  };
+
+  const writingWithSvgFallback: WritingQuestion = {
+    questionNumber: 1,
+    questionType: "write_sentence",
+    promptText: "Write a sentence based on the picture using 'manager' and 'presentation'.",
+    contextData: "manager / presentation",
+    imageUrl: fallbackSvgUri,
+    prepTimeSeconds: 0,
+    responseTimeSeconds: 120,
+  };
+
+  assert.equal(speakingWithHttps.imageUrl, httpsImageUrl);
+  assert.equal(writingWithSvgFallback.imageUrl, fallbackSvgUri);
+});
+
+test("buildWritingParts correctly partitions questions and allocates ETS-calibrated timers", () => {
+  const fullMockQuestions: WritingQuestion[] = [
+    // Part 1: Q1-5
+    { questionNumber: 1, questionType: "write_sentence", promptText: "Q1", prepTimeSeconds: 0, responseTimeSeconds: 60 },
+    { questionNumber: 2, questionType: "write_sentence", promptText: "Q2", prepTimeSeconds: 0, responseTimeSeconds: 60 },
+    { questionNumber: 3, questionType: "write_sentence", promptText: "Q3", prepTimeSeconds: 0, responseTimeSeconds: 60 },
+    { questionNumber: 4, questionType: "write_sentence", promptText: "Q4", prepTimeSeconds: 0, responseTimeSeconds: 60 },
+    { questionNumber: 5, questionType: "write_sentence", promptText: "Q5", prepTimeSeconds: 0, responseTimeSeconds: 60 },
+    // Part 2: Q6-7
+    { questionNumber: 6, questionType: "respond_request", promptText: "Q6", prepTimeSeconds: 0, responseTimeSeconds: 600 },
+    { questionNumber: 7, questionType: "respond_request", promptText: "Q7", prepTimeSeconds: 0, responseTimeSeconds: 600 },
+    // Part 3: Q8
+    { questionNumber: 8, questionType: "write_opinion", promptText: "Q8", prepTimeSeconds: 0, responseTimeSeconds: 1800 },
+  ];
+
+  const parts = buildWritingParts(fullMockQuestions);
+  assert.equal(parts.length, 3);
+
+  // Part 1: 5 questions, 8 minutes (480s)
+  assert.equal(parts[0].partNumber, 1);
+  assert.equal(parts[0].partType, "write_sentence");
+  assert.equal(parts[0].questions.length, 5);
+  assert.equal(parts[0].timeSeconds, 480);
+
+  // Part 2: 2 questions, 20 minutes (1200s)
+  assert.equal(parts[1].partNumber, 2);
+  assert.equal(parts[1].partType, "respond_request");
+  assert.equal(parts[1].questions.length, 2);
+  assert.equal(parts[1].timeSeconds, 1200);
+
+  // Part 3: 1 question, 30 minutes (1800s)
+  assert.equal(parts[2].partNumber, 3);
+  assert.equal(parts[2].partType, "write_opinion");
+  assert.equal(parts[2].questions.length, 1);
+  assert.equal(parts[2].timeSeconds, 1800);
+});
+
+test("buildWritingParts scales timers proportionally for targeted drills", () => {
+  // Part 1 with 2 questions only
+  const drillQuestions: WritingQuestion[] = [
+    { questionNumber: 1, questionType: "write_sentence", promptText: "Q1", prepTimeSeconds: 0, responseTimeSeconds: 60 },
+    { questionNumber: 2, questionType: "write_sentence", promptText: "Q2", prepTimeSeconds: 0, responseTimeSeconds: 60 },
+  ];
+
+  const parts = buildWritingParts(drillQuestions);
+  assert.equal(parts.length, 1);
+  assert.equal(parts[0].partNumber, 1);
+  assert.equal(parts[0].questions.length, 2);
+  // 2 * 96s = 192s
+  assert.equal(parts[0].timeSeconds, 192);
+
+  // Custom part time override
+  const customParts = buildWritingParts(drillQuestions, { part1_seconds: 400 });
+  assert.equal(customParts[0].timeSeconds, 400);
 });
 
 after(async () => {

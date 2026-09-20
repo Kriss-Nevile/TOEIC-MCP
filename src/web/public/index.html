@@ -47,27 +47,26 @@
       <!-- Writing Guidelines Box -->
       <div class="writing-guidelines-box" id="setup-writing-box" style="display: none;">
         <div class="guideline-item">
-          <span class="guideline-icon">⌨️</span>
+          <span class="guideline-icon">⏱️</span>
           <div>
-            <strong>Standard Keyboard Input</strong>
-            <p>Type your responses directly into the editor for each question. Spellcheck and autocorrect are disabled
-              during simulation to mirror official ETS conditions.</p>
+            <strong>Official ETS Part-Based Timers</strong>
+            <p><strong>Part 1:</strong> 8 minutes total (Write a sentence based on a picture).<br>
+               <strong>Part 2:</strong> 20 minutes total (Respond to a written request).<br>
+               <strong>Part 3:</strong> 30 minutes total (Write an opinion essay).</p>
           </div>
         </div>
         <div class="guideline-item">
-          <span class="guideline-icon">⏱️</span>
+          <span class="guideline-icon">🔄</span>
           <div>
-            <strong>Timed Question Progression</strong>
-            <p>Each question has its designated time limit. When you finish answering, click <em>Next Question</em> or
-              allow the timer to expire.</p>
+            <strong>Switch Back & Forth Within Each Part</strong>
+            <p>Freely navigate between questions within the active part using tabs or Previous/Next buttons. Your responses are automatically saved as you write.</p>
           </div>
         </div>
         <div class="guideline-item">
           <span class="guideline-icon">📝</span>
           <div>
             <strong>Word Count & Prompts</strong>
-            <p>Live word and character counters will guide you. For Question 8 (Opinion Essay), aim for at least 300
-              words with structured paragraphs.</p>
+            <p>Live word and character counters guide you. For Question 8 (Opinion Essay), aim for at least 300 words with structured paragraphs.</p>
           </div>
         </div>
       </div>
@@ -84,7 +83,36 @@
     <!-- View 2: Active Exam Screen -->
     <section class="exam-view" id="view-exam">
 
-      <div class="exam-nav-header">
+      <!-- Writing Part Header & Navigation Bar -->
+      <div class="card part-nav-container" id="part-nav-container" style="display: none;">
+        <div class="part-banner">
+          <div class="part-info">
+            <span class="part-badge" id="part-badge">PART 1</span>
+            <span class="part-title-text" id="part-title-text">Write a Sentence Based on a Picture</span>
+          </div>
+          <button type="button" class="btn-directions-toggle" id="btn-toggle-directions">
+            📋 Directions
+          </button>
+        </div>
+
+        <!-- Part Instructions Dropdown Panel -->
+        <div class="part-directions-panel" id="part-directions-panel" style="display: none;">
+          <div class="directions-header">
+            <strong id="directions-heading">Part Directions</strong>
+            <span class="directions-time-note" id="part-time-note">Allocated Time: 8 minutes</span>
+          </div>
+          <ul class="directions-list" id="part-directions-list">
+            <!-- Injected dynamically based on Part -->
+          </ul>
+        </div>
+
+        <!-- Part Questions Tabs (e.g. Q1, Q2, Q3, Q4, Q5) -->
+        <div class="part-question-tabs" id="part-question-tabs">
+          <!-- Dynamically injected tabs -->
+        </div>
+      </div>
+
+      <div class="exam-nav-header" id="speaking-nav-header">
         <div class="question-counter" id="exam-q-counter">Question 1 of 11</div>
         <div class="question-type-badge" id="exam-q-type">Read a text aloud</div>
       </div>
@@ -152,10 +180,16 @@
         <textarea id="writing-textarea" class="writing-textarea" placeholder="Type your response here..."
           spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
         <div class="writing-actions-row">
-          <span class="writing-tip-text" id="writing-tip-text">Click "Next Question" when you are finished
-            typing.</span>
-          <button type="button" class="btn btn-primary" id="btn-next-question">
-            Next Question →
+          <div class="writing-nav-buttons">
+            <button type="button" class="btn btn-secondary" id="btn-prev-question" style="display: none;">
+              ← Previous Question
+            </button>
+            <button type="button" class="btn btn-secondary" id="btn-next-question">
+              Next Question →
+            </button>
+          </div>
+          <button type="button" class="btn btn-primary" id="btn-finish-part">
+            Finish Part 1 →
           </button>
         </div>
       </div>
@@ -199,7 +233,7 @@
       </div>
       <button class="btn btn-primary" id="btn-view-submitted-recordings"
         style="font-size: 0.95rem; padding: 0.75rem 1.5rem;">
-        Listen to Saved Audio
+        Review Saved Responses
       </button>
     </section>
 

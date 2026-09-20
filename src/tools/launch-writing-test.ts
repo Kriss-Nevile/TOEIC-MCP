@@ -10,7 +10,9 @@ export const LaunchWritingTestInputSchema = z.object({
     .array(WritingQuestionSchema)
     .min(1)
     .max(8)
-    .describe("Array of TOEIC Writing questions drafted by the model (1 to 8 questions)."),
+    .describe(
+      "Array of TOEIC Writing questions drafted by the model (1 to 8 questions). For picture-based questions (Q1-5), search the internet for authentic, decent workplace photographs first (consult resource 'toeic://guides/visual-questions'); raw inline SVGs are only allowed as a last-resort fallback when no decent online picture is found."
+    ),
   selected_question_numbers: z
     .array(z.number().int().min(1).max(8))
     .optional()
@@ -19,10 +21,18 @@ export const LaunchWritingTestInputSchema = z.object({
     .string()
     .optional()
     .describe("Optional custom title for the practice session or drill (e.g. 'Part 1 Drill: Picture Sentences', 'Q8 Essay Practice')."),
+  part_times: z
+    .object({
+      part1_seconds: z.number().int().min(10).max(3600).optional().describe("Custom total timer in seconds for Part 1 (Write a Sentence Based on a Picture). Default is 480s (8 mins) for 5 questions, or proportional."),
+      part2_seconds: z.number().int().min(10).max(3600).optional().describe("Custom total timer in seconds for Part 2 (Respond to a Written Request). Default is 1200s (20 mins) for 2 questions, or 600s per email."),
+      part3_seconds: z.number().int().min(10).max(3600).optional().describe("Custom total timer in seconds for Part 3 (Write an Opinion Essay). Default is 1800s (30 mins)."),
+    })
+    .optional()
+    .describe("Optional custom time limits in seconds for each part. If omitted, standard ETS times (Part 1: 8m, Part 2: 20m, Part 3: 30m) or calibrated proportional times are used."),
   output_directory: z
     .string()
     .optional()
-    .describe("Optional custom directory path to save text responses and metadata for this session. If omitted, uses audioStorageDir from toeic.config.json."),
+    .describe("Optional custom directory path to save text responses and metadata for this session. If omitted, uses writingStorageDir from toeic.config.json (default: './writings')."),
   auto_open_browser: z
     .boolean()
     .optional()
@@ -60,8 +70,13 @@ export async function handleLaunchWritingTest(args: LaunchWritingTestInput): Pro
   // 2. Ensure the web server is running
   const { port } = await startWebServer(config.webServerPort);
 
-  // 3. Create the writing session in store & prepare directory
-  const session = createWritingSession(activeQuestions, args.output_directory, args.session_title);
+  // 3. Create the writing session in store & prepare directory with ETS part structure
+  const session = createWritingSession(
+    activeQuestions,
+    args.output_directory,
+    args.session_title,
+    args.part_times
+  );
 
   // 4. Construct local test URL
   const testUrl = `http://localhost:${port}/index.html?session=${session.id}`;
@@ -92,9 +107,17 @@ export async function handleLaunchWritingTest(args: LaunchWritingTestInput): Pro
             mode: session.isDrill ? "targeted_drill" : "full_mock_test",
             web_url: testUrl,
             browser_auto_opened: browserOpened,
-            destination_folder: session.recordingsDir,
+            destination_folder: session.storageDir || session.recordingsDir,
             questions_count: session.questions.length,
             practiced_questions: session.questions.map((q) => q.questionNumber),
+            parts_breakdown: session.parts?.map((p) => ({
+              part_number: p.partNumber,
+              title: p.title,
+              allocated_time_seconds: p.timeSeconds,
+              allocated_time_formatted: `${Math.floor(p.timeSeconds / 60)}m${p.timeSeconds % 60 ? ` ${p.timeSeconds % 60}s` : ""}`,
+              questions_count: p.questions.length,
+              question_numbers: p.questions.map((q) => q.questionNumber),
+            })),
             message: session.isDrill
               ? `Targeted writing drill launched for question(s): ${session.questions.map((q) => `Q${q.questionNumber}`).join(", ")}. Complete writing responses in the browser, then call 'get_test_submission' with this session_id to evaluate.`
               : "Full TOEIC Writing simulator launched. Complete the test in the browser, then call 'get_test_submission' to evaluate.",

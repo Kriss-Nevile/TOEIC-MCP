@@ -13,6 +13,11 @@ let questionBlobs = {}; // questionNumber -> { blob, url, duration, question }
 let writtenAnswers = {}; // questionNumber -> { text, durationSeconds, question }
 let cheatModeActive = false;
 
+// Writing Part State
+let writingParts = [];
+let currentPartIndex = 0;
+let currentPartQuestionIndex = 0;
+
 // Audio Visualizer (Speaking)
 let audioContext = null;
 let analyser = null;
@@ -45,10 +50,24 @@ const setupExamSummary = document.getElementById("setup-exam-summary");
 
 const examQCounter = document.getElementById("exam-q-counter");
 const examQType = document.getElementById("exam-q-type");
+const speakingNavHeader = document.getElementById("speaking-nav-header");
 const timerCard = document.getElementById("timer-card");
 const timerPhaseText = document.getElementById("timer-phase-text");
 const timerDisplay = document.getElementById("timer-display");
 const timerProgressBar = document.getElementById("timer-progress-bar");
+
+// Writing Part Navigation Elements
+const partNavContainer = document.getElementById("part-nav-container");
+const partBadge = document.getElementById("part-badge");
+const partTitleText = document.getElementById("part-title-text");
+const btnToggleDirections = document.getElementById("btn-toggle-directions");
+const partDirectionsPanel = document.getElementById("part-directions-panel");
+const directionsHeading = document.getElementById("directions-heading");
+const partTimeNote = document.getElementById("part-time-note");
+const partDirectionsList = document.getElementById("part-directions-list");
+const partQuestionTabs = document.getElementById("part-question-tabs");
+const btnPrevQuestion = document.getElementById("btn-prev-question");
+const btnFinishPart = document.getElementById("btn-finish-part");
 
 const promptInstructions = document.getElementById("prompt-instructions");
 const promptPassage = document.getElementById("prompt-passage");
@@ -113,6 +132,65 @@ const TYPE_CONFIG = {
   }
 };
 
+function buildWritingPartsClient(questions) {
+  const parts = [];
+
+  // Part 1: Write a Sentence Based on a Picture (write_sentence)
+  const part1Questions = questions.filter((q) => q.questionType === "write_sentence");
+  if (part1Questions.length > 0) {
+    const part1Time = part1Questions.length >= 5 ? 480 : Math.max(120, Math.round(part1Questions.length * 96));
+    parts.push({
+      partNumber: 1,
+      partType: "write_sentence",
+      title: "Part 1: Write a Sentence Based on a Picture",
+      taskDescription: "Write ONE sentence based on the picture using both given words/phrases correctly.",
+      directions: [
+        "You will see a picture along with two words or phrases that must be used in your sentence.",
+        "You may change the form of the words and arrange them in any order to create a complete sentence.",
+      ],
+      timeSeconds: part1Time,
+      questions: part1Questions,
+    });
+  }
+
+  // Part 2: Respond to a Written Request (respond_request)
+  const part2Questions = questions.filter((q) => q.questionType === "respond_request");
+  if (part2Questions.length > 0) {
+    parts.push({
+      partNumber: 2,
+      partType: "respond_request",
+      title: "Part 2: Respond to a Written Request",
+      taskDescription: "Read the email or written memo below and write a comprehensive professional response.",
+      directions: [
+        "This part assesses your ability to respond to written requests in an email format.",
+        "You have 10 minutes to read and write a response to each email.",
+      ],
+      timeSeconds: part2Questions.length * 600,
+      questions: part2Questions,
+    });
+  }
+
+  // Part 3: Write an Opinion Essay (write_opinion)
+  const part3Questions = questions.filter((q) => q.questionType === "write_opinion");
+  if (part3Questions.length > 0) {
+    parts.push({
+      partNumber: 3,
+      partType: "write_opinion",
+      title: "Part 3: Write an Opinion Essay",
+      taskDescription: "State, explain, and support your opinion on the topic below. Aim for at least 300 words.",
+      directions: [
+        "Write an essay expressing your opinion on a specific topic.",
+        "Your essay should present well-developed arguments, clear explanations, and relevant examples to support your opinion.",
+        "An effective essay is typically at least 300 words long.",
+      ],
+      timeSeconds: part3Questions.length * 1800,
+      questions: part3Questions,
+    });
+  }
+
+  return parts;
+}
+
 // Initialize
 async function init() {
   const params = new URLSearchParams(window.location.search);
@@ -139,10 +217,19 @@ async function init() {
       document.title = "TOEIC Writing Test Simulator";
       if (brandIcon) brandIcon.textContent = "✍️";
       if (brandTitle) brandTitle.textContent = "TOEIC Writing Simulator";
+      if (btnViewSubmitted) {
+        btnViewSubmitted.textContent = "Review Saved Responses";
+      }
+      writingParts = sessionData.parts && sessionData.parts.length > 0
+        ? sessionData.parts
+        : buildWritingPartsClient(sessionData.questions);
     } else {
       document.title = "TOEIC Speaking Test Simulator";
       if (brandIcon) brandIcon.textContent = "🎙️";
       if (brandTitle) brandTitle.textContent = "TOEIC Speaking Simulator";
+      if (btnViewSubmitted) {
+        btnViewSubmitted.textContent = "Listen to Saved Audio";
+      }
     }
 
     // Check if session has already been completed / submitted
@@ -164,7 +251,7 @@ async function init() {
       }
       if (setupDesc) {
         setupDesc.textContent =
-          "Welcome to the TOEIC Writing Test simulation. Review the exam guidelines below before beginning your test.";
+          "Welcome to the TOEIC Writing Test simulation. Review the exam guidelines and part breakdown below before beginning your test.";
       }
       if (setupMicBox) setupMicBox.style.display = "none";
       if (setupWritingBox) setupWritingBox.style.display = "flex";
@@ -181,18 +268,33 @@ async function init() {
       if (setupWritingBox) setupWritingBox.style.display = "none";
     }
 
-    const durationTotalSec = sessionData.questions.reduce(
-      (acc, q) => acc + (q.prepTimeSeconds || 0) + (q.responseTimeSeconds || 45),
-      0
-    );
-    const durationMin = Math.ceil(durationTotalSec / 60);
-
     if (setupExamSummary) {
-      setupExamSummary.innerHTML = `
-        <strong>${sessionData.title || (isWritingTest ? "TOEIC Writing Test" : "TOEIC Speaking Test")}</strong><br>
-        Questions: ${sessionData.questions.map(q => `Q${q.questionNumber}`).join(", ")} (${sessionData.questions.length} total)<br>
-        Total allocated duration: ~${durationMin} minute${durationMin !== 1 ? "s" : ""}.
-      `;
+      if (isWritingTest) {
+        const partsSummary = writingParts.map((p) => {
+          const mins = Math.ceil(p.timeSeconds / 60);
+          return `• <strong>${p.title}:</strong> ${p.questions.length} question${p.questions.length > 1 ? "s" : ""} (${mins} min${mins !== 1 ? "s" : ""} total)`;
+        }).join("<br>");
+        const totalMin = Math.ceil(writingParts.reduce((acc, p) => acc + p.timeSeconds, 0) / 60);
+
+        setupExamSummary.innerHTML = `
+          <strong>${sessionData.title || "TOEIC Writing Test"}</strong><br>
+          ${partsSummary}<br>
+          <span style="display:inline-block; margin-top:0.5rem; color: #a5b4fc; font-weight: 600;">
+            Total allocated duration: ~${totalMin} minutes across ${writingParts.length} Part${writingParts.length > 1 ? "s" : ""}.
+          </span>
+        `;
+      } else {
+        const durationTotalSec = sessionData.questions.reduce(
+          (acc, q) => acc + (q.prepTimeSeconds || 0) + (q.responseTimeSeconds || 45),
+          0
+        );
+        const durationMin = Math.ceil(durationTotalSec / 60);
+        setupExamSummary.innerHTML = `
+          <strong>${sessionData.title || "TOEIC Speaking Test"}</strong><br>
+          Questions: ${sessionData.questions.map(q => `Q${q.questionNumber}`).join(", ")} (${sessionData.questions.length} total)<br>
+          Total allocated duration: ~${durationMin} minute${durationMin !== 1 ? "s" : ""}.
+        `;
+      }
     }
   } catch (err) {
     console.error(err);
@@ -324,8 +426,20 @@ function setupEventListeners() {
     writingTextarea.addEventListener("input", updateWritingLiveStats);
   }
 
+  if (btnPrevQuestion) {
+    btnPrevQuestion.addEventListener("click", handlePrevQuestionClick);
+  }
+
   if (btnNextQuestion) {
     btnNextQuestion.addEventListener("click", handleNextQuestionClick);
+  }
+
+  if (btnFinishPart) {
+    btnFinishPart.addEventListener("click", handleFinishPartClick);
+  }
+
+  if (btnToggleDirections) {
+    btnToggleDirections.addEventListener("click", toggleDirections);
   }
 }
 
@@ -399,8 +513,25 @@ function renderSetupMeter() {
 function startExam() {
   viewSetup.style.display = "none";
   viewExam.style.display = "flex";
-  currentQuestionIndex = 0;
-  loadCurrentQuestion();
+
+  if (isWritingTest) {
+    if (speakingNavHeader) speakingNavHeader.style.display = "none";
+    if (partNavContainer) partNavContainer.style.display = "flex";
+    if (micActivityCard) micActivityCard.style.display = "none";
+    if (writingInputCard) writingInputCard.style.display = "flex";
+    if (writingTextarea) writingTextarea.value = "";
+    writtenAnswers = {};
+    currentPartIndex = 0;
+    currentPartQuestionIndex = 0;
+    startWritingPart(0);
+  } else {
+    if (speakingNavHeader) speakingNavHeader.style.display = "flex";
+    if (partNavContainer) partNavContainer.style.display = "none";
+    if (micActivityCard) micActivityCard.style.display = "flex";
+    if (writingInputCard) writingInputCard.style.display = "none";
+    currentQuestionIndex = 0;
+    loadCurrentQuestion();
+  }
 }
 
 function countWords(str) {
@@ -421,8 +552,314 @@ function updateWritingLiveStats() {
   if (writingCharCount) {
     writingCharCount.textContent = `${chars} char${chars !== 1 ? "s" : ""}`;
   }
+
+  // Update in-memory answer immediately so switching questions/tabs retains text
+  if (isWritingTest && writingParts[currentPartIndex]) {
+    const currentQ = writingParts[currentPartIndex].questions[currentPartQuestionIndex];
+    if (currentQ) {
+      if (!writtenAnswers[currentQ.questionNumber]) {
+        writtenAnswers[currentQ.questionNumber] = { text: "", durationSeconds: 0, question: currentQ };
+      }
+      writtenAnswers[currentQ.questionNumber].text = text;
+
+      // Update current tab has-answer state
+      if (partQuestionTabs) {
+        const activeTab = partQuestionTabs.children[currentPartQuestionIndex];
+        if (activeTab) {
+          if (text.trim().length > 0) {
+            activeTab.classList.add("has-answer");
+          } else {
+            activeTab.classList.remove("has-answer");
+          }
+        }
+      }
+    }
+  }
 }
 
+// Writing Part Flow
+function renderPartQuestionTabs(part, activeIndex) {
+  if (!partQuestionTabs) return;
+  partQuestionTabs.innerHTML = "";
+
+  part.questions.forEach((q, idx) => {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "q-tab";
+    if (idx === activeIndex) tab.classList.add("active");
+
+    const saved = writtenAnswers[q.questionNumber];
+    const hasText = Boolean(saved && saved.text && saved.text.trim().length > 0);
+    if (hasText) tab.classList.add("has-answer");
+
+    tab.innerHTML = `
+      <span class="q-tab-dot"></span>
+      <span>Q${q.questionNumber}</span>
+    `;
+
+    tab.addEventListener("click", () => {
+      if (idx !== currentPartQuestionIndex) {
+        switchWritingQuestion(idx);
+      }
+    });
+
+    partQuestionTabs.appendChild(tab);
+  });
+}
+
+function startWritingPart(partIndex) {
+  const part = writingParts[partIndex];
+  if (!part) {
+    finishExam();
+    return;
+  }
+
+  // Clear textarea and counters before loading the new part
+  if (writingTextarea) {
+    writingTextarea.value = "";
+  }
+  if (writingWordCount) writingWordCount.textContent = "0 words";
+  if (writingCharCount) writingCharCount.textContent = "0 chars";
+
+  currentPartIndex = partIndex;
+  currentPartQuestionIndex = 0;
+
+  // Update Part Banner & Directions
+  if (partNavContainer) partNavContainer.style.display = "flex";
+  if (partBadge) partBadge.textContent = `PART ${part.partNumber}`;
+  if (partTitleText) partTitleText.textContent = part.title;
+  if (partTimeNote) {
+    const mins = Math.floor(part.timeSeconds / 60);
+    const secs = part.timeSeconds % 60;
+    partTimeNote.textContent = `Allocated Time: ${mins} minute${mins !== 1 ? "s" : ""}${secs ? ` ${secs}s` : ""}`;
+  }
+  if (partDirectionsList) {
+    partDirectionsList.innerHTML = part.directions
+      .map((d) => `<li>${escapeHtml(d)}</li>`)
+      .join("");
+  }
+  if (partDirectionsPanel) {
+    partDirectionsPanel.style.display = "none";
+  }
+
+  // Set Part Timer
+  currentPhase = "write";
+  totalPhaseTime = part.timeSeconds;
+  timeLeft = totalPhaseTime;
+
+  timerCard.className = "card timer-card mode-speak";
+  timerPhaseText.textContent = `PART ${part.partNumber}: WRITING TIME`;
+  updateTimerDisplay();
+
+  playStartBeep();
+
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    updateTimerDisplay();
+
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      saveCurrentWritingAnswer();
+      if (writingTextarea) {
+        writingTextarea.value = "";
+      }
+      playChime();
+      advanceToNextPart();
+    }
+  }, 1000);
+
+  loadWritingPartQuestion(0);
+}
+
+function switchWritingQuestion(newQIndex) {
+  if (newQIndex === currentPartQuestionIndex) return;
+  saveCurrentWritingAnswer();
+  if (writingTextarea) {
+    writingTextarea.value = "";
+  }
+  loadWritingPartQuestion(newQIndex);
+}
+
+function loadWritingPartQuestion(qIndex) {
+  currentPartQuestionIndex = qIndex;
+  const part = writingParts[currentPartIndex];
+  if (!part) return;
+
+  const question = part.questions[qIndex];
+  if (!question) return;
+
+  // Clear textarea first so stale text never flickers or carries over
+  if (writingTextarea) {
+    writingTextarea.value = "";
+  }
+
+  // Update prompt instructions & passage
+  promptInstructions.textContent = part.taskDescription || "Respond to the question prompt.";
+  promptPassage.textContent = question.promptText || "";
+
+  // Handle image prompt
+  if (question.imageUrl) {
+    promptImage.style.display = "block";
+    promptImage.onerror = () => {
+      promptImage.style.display = "none";
+      let errNotice = promptMedia.querySelector(".image-load-error");
+      if (!errNotice) {
+        errNotice = document.createElement("div");
+        errNotice.className = "image-load-error";
+        errNotice.style.padding = "16px";
+        errNotice.style.textAlign = "center";
+        errNotice.style.color = "#94a3b8";
+        errNotice.style.fontSize = "0.9rem";
+        errNotice.style.backgroundColor = "rgba(148, 163, 184, 0.08)";
+        errNotice.style.borderRadius = "8px";
+        errNotice.style.width = "100%";
+        promptMedia.appendChild(errNotice);
+      }
+      errNotice.innerHTML = `⚠️ <em>Unable to load image from remote URL:</em> <br><span style="word-break:break-all; font-family:monospace; font-size:0.8rem; color:#cbd5e1;">${escapeHtml(question.imageUrl)}</span>`;
+      errNotice.style.display = "block";
+    };
+    const existingNotice = promptMedia.querySelector(".image-load-error");
+    if (existingNotice) existingNotice.style.display = "none";
+
+    promptImage.src = question.imageUrl;
+    promptMedia.style.display = "flex";
+  } else {
+    promptMedia.style.display = "none";
+  }
+
+  // Context data (keywords for Part 1 or email text for Part 2)
+  if (question.contextData) {
+    promptContext.textContent = question.contextData;
+    promptContext.style.display = "block";
+  } else {
+    promptContext.style.display = "none";
+  }
+
+  // Restore textarea only if this question has a previously saved answer
+  const savedAnswer = writtenAnswers[question.questionNumber];
+  if (writingTextarea) {
+    writingTextarea.value = (savedAnswer && typeof savedAnswer.text === "string") ? savedAnswer.text : "";
+  }
+  updateWritingLiveStats();
+
+  if (question.minWords && question.minWords > 0) {
+    if (writingTargetCount) {
+      writingTargetCount.style.display = "inline-block";
+      writingTargetCount.textContent = `Target: ${question.minWords}+ words`;
+    }
+  } else {
+    if (writingTargetCount) writingTargetCount.style.display = "none";
+  }
+
+  // Render navigation tabs for this part
+  renderPartQuestionTabs(part, qIndex);
+
+  // Update navigation buttons inside part
+  if (btnPrevQuestion) {
+    btnPrevQuestion.style.display = qIndex > 0 ? "inline-flex" : "none";
+  }
+  if (btnNextQuestion) {
+    btnNextQuestion.style.display = qIndex < part.questions.length - 1 ? "inline-flex" : "none";
+  }
+  if (btnFinishPart) {
+    const isLastPart = currentPartIndex === writingParts.length - 1;
+    btnFinishPart.textContent = isLastPart ? "Finish Test & Review →" : `Finish Part ${part.partNumber} →`;
+  }
+
+  if (writingTextarea) {
+    writingTextarea.disabled = false;
+    writingTextarea.focus();
+  }
+}
+
+function saveCurrentWritingAnswer() {
+  if (!isWritingTest) return;
+  const part = writingParts[currentPartIndex];
+  if (!part) return;
+  const question = part.questions[currentPartQuestionIndex];
+  if (!question) return;
+
+  const text = writingTextarea ? writingTextarea.value : "";
+  const duration = totalPhaseTime > 0 ? totalPhaseTime - Math.max(0, timeLeft) : 0;
+  writtenAnswers[question.questionNumber] = {
+    text,
+    durationSeconds: duration,
+    question,
+  };
+}
+
+function handlePrevQuestionClick() {
+  if (isWritingTest) {
+    if (currentPartQuestionIndex > 0) {
+      switchWritingQuestion(currentPartQuestionIndex - 1);
+    }
+  }
+}
+
+function handleNextQuestionClick() {
+  if (isWritingTest) {
+    const part = writingParts[currentPartIndex];
+    if (part && currentPartQuestionIndex < part.questions.length - 1) {
+      switchWritingQuestion(currentPartQuestionIndex + 1);
+    }
+  } else {
+    // Speaking
+    const question = sessionData.questions[currentQuestionIndex];
+    if (!question) return;
+
+    clearInterval(timerInterval);
+    playChime();
+
+    currentQuestionIndex++;
+    loadCurrentQuestion();
+  }
+}
+
+function handleFinishPartClick() {
+  if (!isWritingTest) return;
+  saveCurrentWritingAnswer();
+
+  const part = writingParts[currentPartIndex];
+  if (!part) return;
+
+  const unanswered = part.questions.filter(
+    (q) => !writtenAnswers[q.questionNumber]?.text?.trim()
+  );
+
+  if (unanswered.length > 0) {
+    const qList = unanswered.map((q) => `Q${q.questionNumber}`).join(", ");
+    const confirmMsg = `You have ${unanswered.length} unanswered question${unanswered.length > 1 ? "s" : ""} (${qList}) in Part ${part.partNumber}.\n\nOnce you leave this part, you cannot return.\n\nDo you want to proceed?`;
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+  }
+
+  // Clear typing bar before transitioning to the next part
+  if (writingTextarea) {
+    writingTextarea.value = "";
+  }
+
+  playChime();
+  advanceToNextPart();
+}
+
+function advanceToNextPart() {
+  clearInterval(timerInterval);
+  if (currentPartIndex < writingParts.length - 1) {
+    startWritingPart(currentPartIndex + 1);
+  } else {
+    finishExam();
+  }
+}
+
+function toggleDirections() {
+  if (!partDirectionsPanel) return;
+  const isHidden = partDirectionsPanel.style.display === "none";
+  partDirectionsPanel.style.display = isHidden ? "block" : "none";
+}
+
+// Speaking Test Functions
 function loadCurrentQuestion() {
   const question = sessionData.questions[currentQuestionIndex];
   if (!question) {
@@ -430,7 +867,6 @@ function loadCurrentQuestion() {
     return;
   }
 
-  // Update question counters & headers
   const currentItemNum = currentQuestionIndex + 1;
   const totalItems = sessionData.questions.length;
   examQCounter.textContent = sessionData.isDrill
@@ -439,15 +875,36 @@ function loadCurrentQuestion() {
 
   const conf = TYPE_CONFIG[question.questionType] || {
     badge: question.questionType,
-    instructions: "Respond to the question prompt."
+    instructions: "Respond to the question prompt.",
   };
   examQType.textContent = conf.badge;
   promptInstructions.textContent = conf.instructions;
 
-  // Render Prompt Content
   promptPassage.textContent = question.promptText || "";
 
   if (question.imageUrl) {
+    promptImage.style.display = "block";
+    promptImage.onerror = () => {
+      promptImage.style.display = "none";
+      let errNotice = promptMedia.querySelector(".image-load-error");
+      if (!errNotice) {
+        errNotice = document.createElement("div");
+        errNotice.className = "image-load-error";
+        errNotice.style.padding = "16px";
+        errNotice.style.textAlign = "center";
+        errNotice.style.color = "#94a3b8";
+        errNotice.style.fontSize = "0.9rem";
+        errNotice.style.backgroundColor = "rgba(148, 163, 184, 0.08)";
+        errNotice.style.borderRadius = "8px";
+        errNotice.style.width = "100%";
+        promptMedia.appendChild(errNotice);
+      }
+      errNotice.innerHTML = `⚠️ <em>Unable to load image from remote URL:</em> <br><span style="word-break:break-all; font-family:monospace; font-size:0.8rem; color:#cbd5e1;">${escapeHtml(question.imageUrl)}</span>`;
+      errNotice.style.display = "block";
+    };
+    const existingNotice = promptMedia.querySelector(".image-load-error");
+    if (existingNotice) existingNotice.style.display = "none";
+
     promptImage.src = question.imageUrl;
     promptMedia.style.display = "flex";
   } else {
@@ -461,41 +918,9 @@ function loadCurrentQuestion() {
     promptContext.style.display = "none";
   }
 
-  if (isWritingTest) {
-    // Hide speaking mic activity, show writing input card
-    if (micActivityCard) micActivityCard.style.display = "none";
-    if (writingInputCard) writingInputCard.style.display = "flex";
-
-    // Set textarea
-    const savedAnswer = writtenAnswers[question.questionNumber];
-    writingTextarea.value = savedAnswer ? savedAnswer.text : "";
-    updateWritingLiveStats();
-
-    if (question.minWords && question.minWords > 0) {
-      if (writingTargetCount) {
-        writingTargetCount.style.display = "inline-block";
-        writingTargetCount.textContent = `Target: ${question.minWords}+ words`;
-      }
-    } else {
-      if (writingTargetCount) writingTargetCount.style.display = "none";
-    }
-
-    if (btnNextQuestion) {
-      btnNextQuestion.textContent = currentQuestionIndex === totalItems - 1 ? "Finish & Review →" : "Next Question →";
-    }
-
-    // Handle prep phase if configured, else start writing immediately
-    if (question.prepTimeSeconds && question.prepTimeSeconds > 0) {
-      startPreparationPhase(question);
-    } else {
-      startWritingPhase(question);
-    }
-  } else {
-    // Speaking Test
-    if (micActivityCard) micActivityCard.style.display = "flex";
-    if (writingInputCard) writingInputCard.style.display = "none";
-    startPreparationPhase(question);
-  }
+  if (micActivityCard) micActivityCard.style.display = "flex";
+  if (writingInputCard) writingInputCard.style.display = "none";
+  startPreparationPhase(question);
 }
 
 function startPreparationPhase(question) {
@@ -509,10 +934,6 @@ function startPreparationPhase(question) {
 
   playChime();
 
-  if (isWritingTest && writingTextarea) {
-    writingTextarea.disabled = true;
-  }
-
   clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     timeLeft--;
@@ -520,65 +941,9 @@ function startPreparationPhase(question) {
 
     if (timeLeft <= 0) {
       clearInterval(timerInterval);
-      if (isWritingTest) {
-        startWritingPhase(question);
-      } else {
-        startSpeakingPhase(question);
-      }
+      startSpeakingPhase(question);
     }
   }, 1000);
-}
-
-function startWritingPhase(question) {
-  currentPhase = "write";
-  totalPhaseTime = question.responseTimeSeconds || 480;
-  timeLeft = totalPhaseTime;
-
-  timerCard.className = "card timer-card mode-speak";
-  timerPhaseText.textContent = "WRITING TIME";
-  updateTimerDisplay();
-
-  playStartBeep();
-
-  if (writingTextarea) {
-    writingTextarea.disabled = false;
-    writingTextarea.focus();
-  }
-
-  clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    timeLeft--;
-    updateTimerDisplay();
-
-    if (timeLeft <= 0) {
-      clearInterval(timerInterval);
-      saveCurrentWritingAnswer(question);
-      currentQuestionIndex++;
-      loadCurrentQuestion();
-    }
-  }, 1000);
-}
-
-function handleNextQuestionClick() {
-  const question = sessionData.questions[currentQuestionIndex];
-  if (!question) return;
-
-  clearInterval(timerInterval);
-  saveCurrentWritingAnswer(question);
-  playChime();
-
-  currentQuestionIndex++;
-  loadCurrentQuestion();
-}
-
-function saveCurrentWritingAnswer(question) {
-  const text = writingTextarea ? writingTextarea.value : "";
-  const duration = totalPhaseTime > 0 ? totalPhaseTime - Math.max(0, timeLeft) : 0;
-  writtenAnswers[question.questionNumber] = {
-    text,
-    durationSeconds: duration,
-    question
-  };
 }
 
 function startSpeakingPhase(question) {
@@ -759,7 +1124,7 @@ function renderReviewList() {
             <div class="review-prompt-full" id="prompt-full-${q.questionNumber}">
               <div class="review-full-text">${escapeHtml(promptText)}</div>
               ${q.contextData ? `<div class="review-context-block">${escapeHtml(q.contextData)}</div>` : ""}
-              ${q.imageUrl ? `<div class="review-image-block"><img src="${escapeHtml(q.imageUrl)}" alt="Question Visual" /></div>` : ""}
+              ${q.imageUrl ? `<div class="review-image-block"><img src="${escapeHtml(q.imageUrl)}" alt="Question Visual" loading="lazy" /></div>` : ""}
             </div>
             <button type="button" class="review-expand-btn" data-q="${q.questionNumber}">
               <span class="expand-icon">▼</span>
@@ -827,7 +1192,7 @@ function renderReviewList() {
             <div class="review-prompt-full" id="prompt-full-${q.questionNumber}">
               <div class="review-full-text">${escapeHtml(promptText)}</div>
               ${q.contextData ? `<div class="review-context-block">${escapeHtml(q.contextData)}</div>` : ""}
-              ${q.imageUrl ? `<div class="review-image-block"><img src="${escapeHtml(q.imageUrl)}" alt="Question Visual" /></div>` : ""}
+              ${q.imageUrl ? `<div class="review-image-block"><img src="${escapeHtml(q.imageUrl)}" alt="Question Visual" loading="lazy" /></div>` : ""}
             </div>
             <button type="button" class="review-expand-btn" data-q="${q.questionNumber}">
               <span class="expand-icon">▼</span>
@@ -1004,10 +1369,16 @@ async function saveAllResponsesOrRecordings() {
         btnCheatMode.style.display = "none";
       }
 
+      if (btnViewSubmitted) {
+        btnViewSubmitted.textContent = "Review Saved Responses";
+      }
+
       const finishedTitle = document.getElementById("finished-title");
       const finishedDesc = document.getElementById("finished-desc");
+      const finishedMeta = document.getElementById("finished-meta");
       if (finishedTitle) finishedTitle.textContent = "Responses Saved";
       if (finishedDesc) finishedDesc.textContent = "All written responses for this session have been saved to your local storage folder.";
+      if (finishedMeta) finishedMeta.textContent = "Return to your chat and ask your AI agent to evaluate your responses.";
 
       btnSubmitEvaluation.removeEventListener("click", saveAllResponsesOrRecordings);
       viewReview.style.display = "none";
@@ -1047,6 +1418,9 @@ async function saveAllResponsesOrRecordings() {
 
       if (btnCheatMode) {
         btnCheatMode.style.display = "none";
+      }
+      if (btnViewSubmitted) {
+        btnViewSubmitted.textContent = "Listen to Saved Audio";
       }
       btnSubmitEvaluation.removeEventListener("click", saveAllResponsesOrRecordings);
       viewReview.style.display = "none";
